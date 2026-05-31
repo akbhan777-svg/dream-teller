@@ -46,6 +46,14 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+
+  /* 디자인 가이드 커스텀 색상: Deep Purple, Neon Blue, Soft Pink */
+  --color-dream-purple: var(--dream-purple);
+  --color-dream-purple-light: var(--dream-purple-light);
+  --color-dream-blue: var(--dream-blue);
+  --color-dream-blue-light: var(--dream-blue-light);
+  --color-dream-pink: var(--dream-pink);
+  --color-dream-pink-light: var(--dream-pink-light);
 }
 
 :root {
@@ -81,6 +89,14 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+
+  /* Dream Teller 커스텀 색상 */
+  --dream-purple: oklch(0.45 0.2 285);
+  --dream-purple-light: oklch(0.65 0.18 285);
+  --dream-blue: oklch(0.6 0.2 250);
+  --dream-blue-light: oklch(0.75 0.15 250);
+  --dream-pink: oklch(0.7 0.15 350);
+  --dream-pink-light: oklch(0.85 0.1 350);
 }
 
 .dark {
@@ -115,6 +131,14 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+
+  /* Dream Teller 다크모드 커스텀 색상 */
+  --dream-purple: oklch(0.5 0.22 285);
+  --dream-purple-light: oklch(0.7 0.18 285);
+  --dream-blue: oklch(0.65 0.22 250);
+  --dream-blue-light: oklch(0.8 0.15 250);
+  --dream-pink: oklch(0.75 0.16 350);
+  --dream-pink-light: oklch(0.88 0.1 350);
 }
 
 @layer base {
