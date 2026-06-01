@@ -1,4 +1,7 @@
 import type { Metadata } from "next";
+import HeroSection from "@/components/landing/hero-section";
+import FeatureGrid from "@/components/landing/feature-grid";
+import ExamplesFeed from "@/components/landing/examples-feed";
 
 /**
  * 메인 랜딩페이지 SEO 메타데이터
@@ -13,21 +16,18 @@ export const metadata: Metadata = {
  * 메인 랜딩페이지 (/)
  * PRD 5.2 - 메인 랜딩페이지
  */
-// TODO: Hero 섹션 구현
-// TODO: Feature 소개 섹션 (Bento Grid UI) 구현
-// TODO: Pricing 섹션 구현
-// TODO: 리뷰 & 신뢰 구축 섹션 구현
-// TODO: FAQ 섹션 구현
-// TODO: 최종 CTA 섹션 구현
 const HomePage = () => {
   return (
-    <div className="flex flex-col">
-      {/* 랜딩 페이지 콘텐츠가 여기에 구현될 예정 */}
-      <section className="flex min-h-[60vh] items-center justify-center">
-        <p className="text-lg text-muted-foreground">랜딩 페이지</p>
-      </section>
+    <div className="flex flex-col bg-background text-foreground overflow-hidden">
+      {/* 몽환적인 분위기를 위한 전체 오로라 배경 및 레이아웃 */}
+      <div className="aurora-bg min-h-screen">
+        <HeroSection />
+        <FeatureGrid />
+        <ExamplesFeed />
+      </div>
     </div>
   );
 };
 
 export default HomePage;
+
