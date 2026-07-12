@@ -217,6 +217,17 @@
     box-shadow: 0 0 30px oklch(0.5 0.22 285 / 0.5);
     transform: translateY(-2px);
   }
+
+  /* 글래스모피즘 유틸리티 */
+  .bg-glass {
+    @apply bg-white/[0.02] backdrop-blur-xl;
+  }
+  .border-glass {
+    @apply border border-white/10;
+  }
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
 }
 
 @keyframes fadeInUp {
@@ -238,5 +249,14 @@
   50% {
     opacity: 1;
     transform: scale(1.05);
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
   }
 }
