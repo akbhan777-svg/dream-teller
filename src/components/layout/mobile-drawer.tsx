@@ -80,17 +80,31 @@ const MobileDrawer = ({ isOpen, onClose }: MobileDrawerProps) => {
           </div>
 
           {/* 네비게이션 링크 목록 */}
-          <nav className="flex flex-col gap-1 px-4 pb-6">
-            {navItems.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={onClose}
-                className="rounded-lg px-3 py-3 text-base font-medium text-foreground transition-colors hover:bg-dream-purple/10 hover:text-dream-purple"
-              >
-                {item.label}
-              </Link>
-            ))}
+          <nav className="flex flex-col pb-6 px-4">
+            {navItems.map((item) => {
+              if (item.label === "로그인") {
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={onClose}
+                    className="w-full bg-orange-400 text-white py-4 mb-2 text-center text-base font-bold rounded-full transition-opacity hover:opacity-90"
+                  >
+                    {item.label}
+                  </Link>
+                );
+              }
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={onClose}
+                  className="px-4 py-3 text-base font-medium text-foreground transition-colors hover:bg-dream-purple/10 hover:text-dream-purple rounded-lg"
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
           </nav>
         </div>
       </div>
