@@ -79,7 +79,7 @@ const FeatureGrid = () => {
                 <Calendar className="h-7 w-7" />
               </div>
               <div className="space-y-3">
-                <h3 className="text-3xl font-bold text-white tracking-tight">나만의 꿈 아카이브</h3>
+                <h3 className="text-3xl font-bold text-white tracking-tight">꿈의 패턴을 발견하다.</h3>
                 <p className="text-slate-400 leading-relaxed text-lg">
                   캘린더에 누적되는 꿈 기록 히스토리를 통해 무의식 흐름의 변화를 관찰하고, 나만의 결과물을 링크로 쉽게 공유하세요.
                 </p>
