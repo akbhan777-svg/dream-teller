@@ -57,7 +57,7 @@
     - 타이틀: "꿈을 다시 눈앞에"
     - 설명: "AI가 당신의 꿈 속 장면을 한 장의 이미지로 그려드립니다. 흐릿한 기억이 선명한 그림이 됩니다."
   - **Card 4 - 기록 & 공유**
-    - 타이틀: "나만의 꿈 아카이브"
+    - 타이틀: "꿈의 패턴을 발견하다."
     - 설명: "캘린더에 기록되는 꿈 해석 히스토리. 결과를 친구와 공유하고, 나의 무의식 패턴을 발견하세요."
 - 이미 풀이된 이전 유저들의 꿈 해몽 텍스트 및 AI 이미지 예시 리스트 섹션 (더보기 -> 예시 리스트 피드로 이동 / 개별 카드 클릭 -> 해당 해몽 결과 확인 페이지로 이동)
 
@@ -271,18 +271,18 @@ Supabase PostgreSQL 환경을 기준으로 구성하되, 인증 테이블(`auth.
 ### 7.1 Users (`users`)
 - **목적**: 회원(소셜 가입)과 비회원(전화번호 기반)의 정보를 통합 관리하고, 회원별 잔여 해몽 이용 횟수를 유지합니다.
 - **테이블 구조**:
-  | 칼럼명 | 데이터 타입 | Null 여부 | 기본값 | 제약 조건 | 설명 |
-  | :--- | :--- | :--- | :--- | :--- | :--- |
-  | `id` | `UUID` | NOT NULL | - | PK, FK (`auth.users.id`) | 사용자 고유 식별자 (Supabase Auth와 1:1 매핑) |
-  | `role` | `VARCHAR(20)` | NOT NULL | `'guest'` | Check Constraint (`member`, `guest`, `admin`) | 사용자 권한 및 역할 |
-  | `provider` | `VARCHAR(20)` | NOT NULL | `'guest'` | Check Constraint (`google`, `kakao`, `guest`) | 소셜 가입 경로 또는 비회원 표시 |
-  | `email` | `VARCHAR(255)` | NULL | - | Unique | 회원 로그인용 이메일 주소 |
-  | `nickname` | `VARCHAR(50)` | NULL | - | - | 사용자가 커스텀 설정 가능한 닉네임 |
-  | `phone_number` | `VARCHAR(20)` | NULL | - | - | 비회원 식별 및 주문 조회용 전화번호 |
-  | `guest_password_hash`| `VARCHAR(255)` | NULL | - | - | 비회원용 암호화된 비밀번호 해시 |
-  | `remaining_interprets`| `INTEGER` | NOT NULL | `0` | - | 회원의 꿈해몽 잔여 보유 횟수 |
-  | `created_at` | `TIMESTAMPTZ` | NOT NULL | `now()` | - | 계정 최초 생성 시각 |
-  | `updated_at` | `TIMESTAMPTZ` | NOT NULL | `now()` | - | 마지막 정보 변경 시각 |
+  | 칼럼명                 | 데이터 타입    | Null 여부 | 기본값    | 제약 조건                                     | 설명                                          |
+  | :--------------------- | :------------- | :-------- | :-------- | :-------------------------------------------- | :-------------------------------------------- |
+  | `id`                   | `UUID`         | NOT NULL  | -         | PK, FK (`auth.users.id`)                      | 사용자 고유 식별자 (Supabase Auth와 1:1 매핑) |
+  | `role`                 | `VARCHAR(20)`  | NOT NULL  | `'guest'` | Check Constraint (`member`, `guest`, `admin`) | 사용자 권한 및 역할                           |
+  | `provider`             | `VARCHAR(20)`  | NOT NULL  | `'guest'` | Check Constraint (`google`, `kakao`, `guest`) | 소셜 가입 경로 또는 비회원 표시               |
+  | `email`                | `VARCHAR(255)` | NULL      | -         | Unique                                        | 회원 로그인용 이메일 주소                     |
+  | `nickname`             | `VARCHAR(50)`  | NULL      | -         | -                                             | 사용자가 커스텀 설정 가능한 닉네임            |
+  | `phone_number`         | `VARCHAR(20)`  | NULL      | -         | -                                             | 비회원 식별 및 주문 조회용 전화번호           |
+  | `guest_password_hash`  | `VARCHAR(255)` | NULL      | -         | -                                             | 비회원용 암호화된 비밀번호 해시               |
+  | `remaining_interprets` | `INTEGER`      | NOT NULL  | `0`       | -                                             | 회원의 꿈해몽 잔여 보유 횟수                  |
+  | `created_at`           | `TIMESTAMPTZ`  | NOT NULL  | `now()`   | -                                             | 계정 최초 생성 시각                           |
+  | `updated_at`           | `TIMESTAMPTZ`  | NOT NULL  | `now()`   | -                                             | 마지막 정보 변경 시각                         |
 
 - **인덱싱 계획**:
   - `idx_users_phone_number` (B-Tree): 비회원 로그인 및 비회원 주문 조회 기능 성능 최적화를 위해 전화번호 컬럼에 인덱스 생성.
@@ -293,19 +293,19 @@ Supabase PostgreSQL 환경을 기준으로 구성하되, 인증 테이블(`auth.
 ### 7.2 Orders (`orders`)
 - **목적**: 사용자의 꿈 해몽 요청, 다회권 충전 주문 정보 및 분석하려는 꿈 원본 데이터를 관리합니다.
 - **테이블 구조**:
-  | 칼럼명 | 데이터 타입 | Null 여부 | 기본값 | 제약 조건 | 설명 |
-  | :--- | :--- | :--- | :--- | :--- | :--- |
-  | `id` | `UUID` | NOT NULL | `gen_random_uuid()` | PK | 내부 시스템 주문 고유 식별자 |
-  | `order_number` | `VARCHAR(100)` | NOT NULL | - | Unique | 토스페이먼츠의 `orderId`와 매핑되는 외부 고유 주문번호 |
-  | `user_id` | `UUID` | NOT NULL | - | FK (`users.id` ON DELETE RESTRICT) | 해당 주문을 생성한 사용자 식별자 |
-  | `order_type` | `VARCHAR(30)` | NOT NULL | - | Check (`single_interpretation`, `pass_charge_5`, `pass_charge_10`, `pass_use`) | 주문 종류 (단판 해몽, 5회권 충전, 10회권 충전, 다회권 차감) |
-  | `total_amount` | `INTEGER` | NOT NULL | `0` | - | 주문 총액 (다회권 차감 `pass_use`인 경우 0원) |
-  | `payment_status` | `VARCHAR(20)` | NOT NULL | `'pending'` | Check (`pending`, `paid`, `failed`, `refunded`, `canceled`) | 주문에 연계된 최종 결제 및 처리 상태 |
-  | `dream_content` | `TEXT` | NULL | - | - | 유저가 작성한 꿈 본문 (다회권 단순 충전일 때는 Null 가능) |
-  | `expert_field` | `VARCHAR(30)` | NULL | - | Check (`freud`, `jung`, `neuroscience`, `gestalt`) | 선택한 전문 해석 관점 (다회권 단순 충전일 때는 Null 가능) |
-  | `includes_image` | `BOOLEAN` | NOT NULL | `false` | - | AI 이미지 생성 옵션 동반 여부 |
-  | `created_at` | `TIMESTAMPTZ` | NOT NULL | `now()` | - | 주문 작성 일시 |
-  | `updated_at` | `TIMESTAMPTZ` | NOT NULL | `now()` | - | 주문 상태 최종 변경 일시 |
+  | 칼럼명           | 데이터 타입    | Null 여부 | 기본값              | 제약 조건                                                                      | 설명                                                        |
+  | :--------------- | :------------- | :-------- | :------------------ | :----------------------------------------------------------------------------- | :---------------------------------------------------------- |
+  | `id`             | `UUID`         | NOT NULL  | `gen_random_uuid()` | PK                                                                             | 내부 시스템 주문 고유 식별자                                |
+  | `order_number`   | `VARCHAR(100)` | NOT NULL  | -                   | Unique                                                                         | 토스페이먼츠의 `orderId`와 매핑되는 외부 고유 주문번호      |
+  | `user_id`        | `UUID`         | NOT NULL  | -                   | FK (`users.id` ON DELETE RESTRICT)                                             | 해당 주문을 생성한 사용자 식별자                            |
+  | `order_type`     | `VARCHAR(30)`  | NOT NULL  | -                   | Check (`single_interpretation`, `pass_charge_5`, `pass_charge_10`, `pass_use`) | 주문 종류 (단판 해몽, 5회권 충전, 10회권 충전, 다회권 차감) |
+  | `total_amount`   | `INTEGER`      | NOT NULL  | `0`                 | -                                                                              | 주문 총액 (다회권 차감 `pass_use`인 경우 0원)               |
+  | `payment_status` | `VARCHAR(20)`  | NOT NULL  | `'pending'`         | Check (`pending`, `paid`, `failed`, `refunded`, `canceled`)                    | 주문에 연계된 최종 결제 및 처리 상태                        |
+  | `dream_content`  | `TEXT`         | NULL      | -                   | -                                                                              | 유저가 작성한 꿈 본문 (다회권 단순 충전일 때는 Null 가능)   |
+  | `expert_field`   | `VARCHAR(30)`  | NULL      | -                   | Check (`freud`, `jung`, `neuroscience`, `gestalt`)                             | 선택한 전문 해석 관점 (다회권 단순 충전일 때는 Null 가능)   |
+  | `includes_image` | `BOOLEAN`      | NOT NULL  | `false`             | -                                                                              | AI 이미지 생성 옵션 동반 여부                               |
+  | `created_at`     | `TIMESTAMPTZ`  | NOT NULL  | `now()`             | -                                                                              | 주문 작성 일시                                              |
+  | `updated_at`     | `TIMESTAMPTZ`  | NOT NULL  | `now()`             | -                                                                              | 주문 상태 최종 변경 일시                                    |
 
 - **인덱싱 계획**:
   - `idx_orders_user_id` (B-Tree): 특정 유저의 마이페이지나 비회원 조회에서 본인 주문 내역을 빠르게 색인하도록 유저 외래키에 인덱스 설정.
@@ -316,20 +316,20 @@ Supabase PostgreSQL 환경을 기준으로 구성하되, 인증 테이블(`auth.
 ### 7.3 Payments (`payments`)
 - **목적**: 토스페이먼츠 API 연동 결과 및 상세 영수증 트랜잭션, 취소/환불 로그를 보관하여 매출 데이터를 독립적이고 정밀하게 관리합니다.
 - **테이블 구조**:
-  | 칼럼명 | 데이터 타입 | Null 여부 | 기본값 | 제약 조건 | 설명 |
-  | :--- | :--- | :--- | :--- | :--- | :--- |
-  | `id` | `UUID` | NOT NULL | `gen_random_uuid()` | PK | 결제 고유 식별자 |
-  | `order_id` | `UUID` | NOT NULL | - | FK (`orders.id` ON DELETE RESTRICT), Unique | 결제가 발생한 주문 식별자 (1:1 관계) |
-  | `payment_key` | `VARCHAR(255)` | NULL | - | Unique | 토스페이먼츠에서 발급한 고유 결제 승인 키 |
-  | `amount` | `INTEGER` | NOT NULL | `0` | - | 실제 승인 및 결제 완료된 금액 |
-  | `method` | `VARCHAR(50)` | NULL | - | - | 결제 수단 (예: 신용카드, 간편결제, 계좌이체 등) |
-  | `approved_at` | `TIMESTAMPTZ` | NULL | - | - | 결제 승인 완료 처리 시각 |
-  | `canceled_at` | `TIMESTAMPTZ` | NULL | - | - | 결제 취소/환불 완료 처리 시각 |
-  | `raw_response` | `JSONB` | NULL | - | - | 토스페이먼츠 API로부터 받은 원본 JSON 데이터 전문 |
-  | `error_code` | `VARCHAR(50)` | NULL | - | - | 결제 실패 시 수신한 에러 코드 |
-  | `error_message` | `TEXT` | NULL | - | - | 결제 실패 시 수신한 상세 실패 원인 메세지 |
-  | `created_at` | `TIMESTAMPTZ` | NOT NULL | `now()` | - | 결제 데이터 최초 등록 시각 |
-  | `updated_at` | `TIMESTAMPTZ` | NOT NULL | `now()` | - | 결제 상태 변경 시각 |
+  | 칼럼명          | 데이터 타입    | Null 여부 | 기본값              | 제약 조건                                   | 설명                                              |
+  | :-------------- | :------------- | :-------- | :------------------ | :------------------------------------------ | :------------------------------------------------ |
+  | `id`            | `UUID`         | NOT NULL  | `gen_random_uuid()` | PK                                          | 결제 고유 식별자                                  |
+  | `order_id`      | `UUID`         | NOT NULL  | -                   | FK (`orders.id` ON DELETE RESTRICT), Unique | 결제가 발생한 주문 식별자 (1:1 관계)              |
+  | `payment_key`   | `VARCHAR(255)` | NULL      | -                   | Unique                                      | 토스페이먼츠에서 발급한 고유 결제 승인 키         |
+  | `amount`        | `INTEGER`      | NOT NULL  | `0`                 | -                                           | 실제 승인 및 결제 완료된 금액                     |
+  | `method`        | `VARCHAR(50)`  | NULL      | -                   | -                                           | 결제 수단 (예: 신용카드, 간편결제, 계좌이체 등)   |
+  | `approved_at`   | `TIMESTAMPTZ`  | NULL      | -                   | -                                           | 결제 승인 완료 처리 시각                          |
+  | `canceled_at`   | `TIMESTAMPTZ`  | NULL      | -                   | -                                           | 결제 취소/환불 완료 처리 시각                     |
+  | `raw_response`  | `JSONB`        | NULL      | -                   | -                                           | 토스페이먼츠 API로부터 받은 원본 JSON 데이터 전문 |
+  | `error_code`    | `VARCHAR(50)`  | NULL      | -                   | -                                           | 결제 실패 시 수신한 에러 코드                     |
+  | `error_message` | `TEXT`         | NULL      | -                   | -                                           | 결제 실패 시 수신한 상세 실패 원인 메세지         |
+  | `created_at`    | `TIMESTAMPTZ`  | NOT NULL  | `now()`             | -                                           | 결제 데이터 최초 등록 시각                        |
+  | `updated_at`    | `TIMESTAMPTZ`  | NOT NULL  | `now()`             | -                                           | 결제 상태 변경 시각                               |
 
 - **인덱싱 계획**:
   - `idx_payments_order_id` (B-Tree): 주문 조회 시 결제 승인/실패 기록을 고속 결합(Join)하기 위한 외래키 인덱스.
@@ -339,16 +339,16 @@ Supabase PostgreSQL 환경을 기준으로 구성하되, 인증 테이블(`auth.
 ### 7.4 Dream Results (`dream_results`)
 - **목적**: 꿈 해몽 주문건에 매핑되는 AI(Gemini) 분석 결과 리포트와 이미지 URL, 공개 피드 노출 통제 정보를 관리합니다.
 - **테이블 구조**:
-  | 칼럼명 | 데이터 타입 | Null 여부 | 기본값 | 제약 조건 | 설명 |
-  | :--- | :--- | :--- | :--- | :--- | :--- |
-  | `id` | `UUID` | NOT NULL | `gen_random_uuid()` | PK | 결과 리포트 고유 식별자 |
-  | `order_id` | `UUID` | NOT NULL | - | FK (`orders.id` ON DELETE CASCADE), Unique | 매핑되는 대상 주문서 식별자 (1:1 관계) |
-  | `analysis_status`| `VARCHAR(20)` | NOT NULL | `'processing'`| Check (`processing`, `completed`, `failed`) | AI 해석 및 이미지 생성 연산 처리 상태 |
-  | `analysis_text` | `TEXT` | NULL | - | - | Gemini LLM이 도출해 낸 심층 꿈 해석 텍스트 리포트 |
-  | `image_url` | `VARCHAR(1000)`| NULL | - | - | AI 이미지 생성 모델을 통해 호스팅된 이미지 URL |
-  | `is_public` | `BOOLEAN` | NOT NULL | `false` | - | 공개 피드(`/feeds`) 목록 노출 여부 스위치 |
-  | `created_at` | `TIMESTAMPTZ` | NOT NULL | `now()` | - | AI 파이프라인 최초 진입 시각 |
-  | `updated_at` | `TIMESTAMPTZ` | NOT NULL | `now()` | - | AI 생성물 갱신 및 공개 여부 스위칭 시각 |
+  | 칼럼명            | 데이터 타입     | Null 여부 | 기본값              | 제약 조건                                   | 설명                                              |
+  | :---------------- | :-------------- | :-------- | :------------------ | :------------------------------------------ | :------------------------------------------------ |
+  | `id`              | `UUID`          | NOT NULL  | `gen_random_uuid()` | PK                                          | 결과 리포트 고유 식별자                           |
+  | `order_id`        | `UUID`          | NOT NULL  | -                   | FK (`orders.id` ON DELETE CASCADE), Unique  | 매핑되는 대상 주문서 식별자 (1:1 관계)            |
+  | `analysis_status` | `VARCHAR(20)`   | NOT NULL  | `'processing'`      | Check (`processing`, `completed`, `failed`) | AI 해석 및 이미지 생성 연산 처리 상태             |
+  | `analysis_text`   | `TEXT`          | NULL      | -                   | -                                           | Gemini LLM이 도출해 낸 심층 꿈 해석 텍스트 리포트 |
+  | `image_url`       | `VARCHAR(1000)` | NULL      | -                   | -                                           | AI 이미지 생성 모델을 통해 호스팅된 이미지 URL    |
+  | `is_public`       | `BOOLEAN`       | NOT NULL  | `false`             | -                                           | 공개 피드(`/feeds`) 목록 노출 여부 스위치         |
+  | `created_at`      | `TIMESTAMPTZ`   | NOT NULL  | `now()`             | -                                           | AI 파이프라인 최초 진입 시각                      |
+  | `updated_at`      | `TIMESTAMPTZ`   | NOT NULL  | `now()`             | -                                           | AI 생성물 갱신 및 공개 여부 스위칭 시각           |
 
 - **인덱싱 계획**:
   - `idx_dream_results_is_public` (B-Tree): 공개 피드(Feeds) 목록을 로드할 때 최적의 성능을 발휘하도록 `is_public` 필드가 `true`인 행을 효율적으로 스캔하는 필터드 인덱스(Filtered Index) 활용 권장.
@@ -359,14 +359,14 @@ Supabase PostgreSQL 환경을 기준으로 구성하되, 인증 테이블(`auth.
 ### 7.5 Pass Transactions (`pass_transactions`)
 - **목적**: 회원의 다회 요금제(이용권) 충전 및 차감 히스토리를 정밀하게 추적 및 로깅하는 보조 트랜잭션 테이블입니다.
 - **테이블 구조**:
-  | 칼럼명 | 데이터 타입 | Null 여부 | 기본값 | 제약 조건 | 설명 |
-  | :--- | :--- | :--- | :--- | :--- | :--- |
-  | `id` | `UUID` | NOT NULL | `gen_random_uuid()` | PK | 이용권 기록 식별자 |
-  | `user_id` | `UUID` | NOT NULL | - | FK (`users.id` ON DELETE CASCADE) | 이용권 변동이 적용된 사용자 식별자 |
-  | `order_id` | `UUID` | NULL | - | FK (`orders.id` ON DELETE SET NULL) | 해당 횟수 변동을 야기한 귀속 주문 식별자 (환불/단판 차감 연계용) |
-  | `transaction_type`| `VARCHAR(20)` | NOT NULL | - | Check (`charge`, `consume`, `cancel_refund`) | 이용권 변동 유형 (충전, 차감 사용, 환불/취소로 복구) |
-  | `amount` | `INTEGER` | NOT NULL | - | - | 가감된 횟수 수량 (충전 시 양수 `+5`, `+10` / 사용 시 음수 `-1`) |
-  | `created_at` | TIMESTAMPTZ | NOT NULL | `now()` | - | 내역 생성 일시 |
+  | 칼럼명             | 데이터 타입   | Null 여부 | 기본값              | 제약 조건                                    | 설명                                                             |
+  | :----------------- | :------------ | :-------- | :------------------ | :------------------------------------------- | :--------------------------------------------------------------- |
+  | `id`               | `UUID`        | NOT NULL  | `gen_random_uuid()` | PK                                           | 이용권 기록 식별자                                               |
+  | `user_id`          | `UUID`        | NOT NULL  | -                   | FK (`users.id` ON DELETE CASCADE)            | 이용권 변동이 적용된 사용자 식별자                               |
+  | `order_id`         | `UUID`        | NULL      | -                   | FK (`orders.id` ON DELETE SET NULL)          | 해당 횟수 변동을 야기한 귀속 주문 식별자 (환불/단판 차감 연계용) |
+  | `transaction_type` | `VARCHAR(20)` | NOT NULL  | -                   | Check (`charge`, `consume`, `cancel_refund`) | 이용권 변동 유형 (충전, 차감 사용, 환불/취소로 복구)             |
+  | `amount`           | `INTEGER`     | NOT NULL  | -                   | -                                            | 가감된 횟수 수량 (충전 시 양수 `+5`, `+10` / 사용 시 음수 `-1`)  |
+  | `created_at`       | TIMESTAMPTZ   | NOT NULL  | `now()`             | -                                            | 내역 생성 일시                                                   |
 
 - **인덱싱 계획**:
   - `idx_pass_transactions_user_id` (B-Tree): 유저의 마이페이지에서 이용권 충전 및 차감 상세 내역 이력을 로딩할 때 효율적인 쿼리를 수행할 수 있도록 설정.
