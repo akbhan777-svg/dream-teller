@@ -19,27 +19,32 @@ const getRedirectURL = () => {
 const AuthClientPage = () => {
   const [isLoading, setIsLoading] = useState<string | null>(null);
 
-  const handleSocialLogin = (provider: "google" | "kakao") => {
+  const handleSocialLogin = async (provider: "google" | "kakao") => {
     setIsLoading(provider);
 
-    // 환경별 리다이렉트 타겟 URL 확보
-    const targetURL = getRedirectURL();
-    console.log(`${provider} 로그인 요청. 리다이렉트 타겟: ${targetURL}`);
+    try {
+      // 1단계: 백엔드 API인 /api/auth/login을 호출
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ provider }),
+      });
 
-    // TODO: Supabase OAuth 연동 시 아래 코드로 대체합니다.
-    /*
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: provider,
-      options: {
-        redirectTo: targetURL,
-      },
-    });
-    */
+      const data = await response.json();
 
-    // 개발 환경 검증용 시뮬레이션 (1.5초 후 이동)
-    setTimeout(() => {
-      window.location.href = targetURL;
-    }, 1500);
+      if (!response.ok || !data.url) {
+        throw new Error(data.error || "소셜 로그인 요청 실패");
+      }
+
+      // 2단계: Supabase가 반환한 구글/카카오 OAuth 페이지로 리다이렉트
+      window.location.href = data.url;
+    } catch (error) {
+      console.error(`${provider} 로그인 처리 중 오류 발생:`, error);
+      alert("로그인 처리 중 에러가 발생했습니다. 다시 시도해 주세요.");
+      setIsLoading(null);
+    }
   };
 
   return (
