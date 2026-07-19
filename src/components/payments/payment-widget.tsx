@@ -13,6 +13,7 @@ interface PaymentWidgetProps {
   onFail?: () => void;
 }
 
+// TODO: [토스페이먼츠 심사 완료 후] API 개별 연동 키(test_ck_...) 대신 토스 상점 관리자 콘솔에서 발급받은 '결제위젯 전용 클라이언트 키(test_gck_...)'를 .env.local의 NEXT_PUBLIC_TOSS_CLIENT_KEY에 설정해야 합니다.
 const clientKey = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY || "test_gck_docs_Ovk5rk1EwkEbP0W43n07xlzm";
 
 export default function PaymentWidget({ amount, orderId, orderName, customerKey, onSuccess, onFail }: PaymentWidgetProps) {
@@ -26,6 +27,7 @@ export default function PaymentWidget({ amount, orderId, orderName, customerKey,
 
     const initializeWidget = async () => {
       try {
+        // TODO: Toss SDK 연동 시 API 개별 연동 키를 사용할 경우 위젯 SDK 미지원 에러가 발생함.
         const tossPayments = await loadTossPayments(clientKey);
         
         // Return early if unmounted

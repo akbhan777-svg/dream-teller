@@ -2,7 +2,7 @@
 
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, Sparkles, Brain, Moon, Eye, CheckCircle2, Phone, Lock, EyeOff, UserCheck, UserX } from "lucide-react";
+import { ChevronDown, Sparkles, Brain, Moon, Eye, CheckCircle2, Phone, Lock, EyeOff, UserCheck, UserX, Ticket } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -211,7 +211,7 @@ export default function DreamTellerForm() {
               <span className="flex items-center justify-center w-8 h-8 rounded-full bg-dream-purple/20 text-dream-purple-light text-sm">2</span>
               어떤 꿈을 꾸셨나요?
             </h2>
-            {dreamContent.length >= 20 && !isStepOpen(2) && (
+            {dreamContent.trim().length >= 20 && !isStepOpen(2) && (
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-5 h-5 text-dream-blue-light" />
                 <span className="text-xs text-dream-purple-light hover:text-white transition-colors ml-1 font-semibold">펼쳐보기</span>
@@ -229,17 +229,45 @@ export default function DreamTellerForm() {
                 className="relative w-full h-48 bg-[#13131b] text-white p-6 rounded-xl border border-white/20 focus:border-dream-purple focus:bg-[#0d0d12] focus:outline-none focus:ring-1 focus:ring-dream-purple resize-none placeholder:text-slate-500 text-lg leading-relaxed shadow-inner transition-all"
               />
             </div>
-            <div className="flex items-center justify-between mt-4">
-              <span className={cn("text-sm", dreamContent.length < 20 ? "text-dream-pink-light" : "text-slate-400")}>
-                {dreamContent.length} / 최소 20자
-              </span>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mt-4">
+              <div className="flex items-center gap-3">
+                <span className={cn(
+                  "text-xs px-3 py-1 rounded-full font-semibold border transition-all flex items-center gap-1.5",
+                  dreamContent.trim().length < 20 
+                    ? "bg-amber-500/10 text-amber-400 border-amber-500/30" 
+                    : "bg-emerald-500/15 text-emerald-400 border-emerald-500/30 shadow-[0_0_10px_rgba(52,211,153,0.15)]"
+                )}>
+                  {dreamContent.trim().length < 20 ? (
+                    <><span>⚠️</span> <span>최소 20자 필요 ({dreamContent.trim().length}/20)</span></>
+                  ) : (
+                    <><CheckCircle2 className="w-3.5 h-3.5" /> <span>{dreamContent.trim().length}자 작성 완료</span></>
+                  )}
+                </span>
+                
+                {/* 시각적 프로그레스 바 */}
+                <div className="w-24 h-1.5 bg-white/10 rounded-full overflow-hidden hidden sm:block">
+                  <div 
+                    className={cn(
+                      "h-full transition-all duration-300 rounded-full",
+                      dreamContent.trim().length < 20 ? "bg-amber-400" : "bg-emerald-400"
+                    )}
+                    style={{ width: `${Math.min(100, (dreamContent.trim().length / 20) * 100)}%` }}
+                  />
+                </div>
+              </div>
+
               <Button 
                 onClick={(e) => {
                   e.stopPropagation();
                   handleNextStep(3);
                 }} 
-                disabled={dreamContent.length < 20}
-                className="bg-white/10 hover:bg-white/20 text-white border border-white/20 cursor-pointer"
+                disabled={dreamContent.trim().length < 20}
+                className={cn(
+                  "border cursor-pointer transition-all duration-300 font-semibold px-6",
+                  dreamContent.trim().length >= 20 
+                    ? "bg-gradient-to-r from-dream-purple to-dream-pink text-white border-white/20 shadow-lg hover:scale-105" 
+                    : "bg-white/10 text-slate-400 border-white/10 opacity-50"
+                )}
               >
                 다음 단계로
               </Button>
@@ -279,6 +307,27 @@ export default function DreamTellerForm() {
           
           <div className={cn("transition-all duration-500 origin-top", isStepOpen(3) ? "max-h-[1000px] opacity-100 mt-4" : "max-h-0 opacity-0 overflow-hidden m-0")}>
             <div className="space-y-4">
+              {/* 잔여 횟수 사용 (회원 전용) */}
+              {isLoggedIn && (
+                <label className={cn("flex items-start justify-between p-5 rounded-xl border cursor-pointer transition-all relative overflow-hidden", paymentOption === "use_pass" ? "border-emerald-400 bg-emerald-500/20 shadow-[0_0_15px_rgba(52,211,153,0.15)]" : "border-white/20 bg-[#13131b] hover:bg-[#1a1a24] hover:border-white/30")}>
+                  <div className="absolute top-0 right-0 bg-emerald-500 text-white text-xs font-bold px-3 py-1 rounded-bl-lg shadow-md z-10">보유 잔여 횟수 차감</div>
+                  <div className="flex items-start gap-4 relative z-10">
+                    <input type="radio" name="payment" checked={paymentOption === "use_pass"} onChange={() => handlePaymentOptionSelect("use_pass")} className="mt-1 w-4 h-4 accent-emerald-400" />
+                    <div>
+                      <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                        <Ticket className="w-5 h-5 text-emerald-400" />
+                        잔여 횟수 사용
+                      </h3>
+                      <p className="text-slate-400 text-sm mt-1">보유 중인 다회권의 잔여 횟수 1회를 사용하여 해석합니다. 이미지 생성 포함.</p>
+                    </div>
+                  </div>
+                  <div className="text-right relative z-10">
+                    <div className="text-xl font-bold text-emerald-400">0원</div>
+                    <div className="text-xs text-slate-400">잔여 횟수 차감</div>
+                  </div>
+                </label>
+              )}
+
               {/* 단판 결제 */}
               <label className={cn("flex items-start justify-between p-5 rounded-xl border cursor-pointer transition-all", paymentOption === "single" ? "border-dream-blue bg-dream-blue/20 shadow-[0_0_15px_rgba(139,92,246,0.15)]" : "border-white/20 bg-[#13131b] hover:bg-[#1a1a24] hover:border-white/30")}>
                 <div className="flex items-start gap-4">
@@ -428,7 +477,7 @@ export default function DreamTellerForm() {
             onClick={(!isLoggedIn && activeStep === 3) ? () => handleNextStep(4) : handlePayment}
             disabled={
               !expert || 
-              dreamContent.length < 20 || 
+              dreamContent.trim().length < 20 || 
               (!isLoggedIn && activeStep === 4 && (guestPhone.length < 12 || guestPassword.length < 4))
             }
             className="group relative inline-flex p-[2px] rounded-full bg-gradient-to-r from-dream-pink via-dream-purple to-dream-blue overflow-hidden transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105"
@@ -437,7 +486,7 @@ export default function DreamTellerForm() {
             <div className="relative bg-background/80 backdrop-blur-md text-white font-bold px-8 py-3 md:px-12 md:py-4 rounded-full border border-white/5 transition-all z-10 flex items-center gap-2">
               <Sparkles className="w-5 h-5" />
               <span>
-                {!isLoggedIn && activeStep === 3 ? "연락처 입력하기" : "결제하기"}
+                {!isLoggedIn && activeStep === 3 ? "연락처 입력하기" : paymentOption === "use_pass" ? "해몽 시작하기" : "결제하기"}
               </span>
             </div>
           </button>

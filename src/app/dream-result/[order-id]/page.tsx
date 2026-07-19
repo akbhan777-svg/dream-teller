@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from "react";
 import Image from "next/image";
-import { useParams } from "next/navigation";
-import { Quote, Sparkles, Share2, Download, Calendar as CalendarIcon, UserCheck, UserX, Link as LinkIcon, CheckCircle2 } from "lucide-react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { Quote, Sparkles, Share2, Download, Calendar as CalendarIcon, UserCheck, UserX, Link as LinkIcon, CheckCircle2, ShieldAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -18,12 +18,65 @@ declare global {
 
 export default function DreamResultPage() {
   const params = useParams();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const orderId = params["order-id"] as string;
 
-  // 테스트용 임시 상태
+  // 테스트용 임시 상태 및 소유권 검증 (더미 데이터/세션 기반)
   const [isMember, setIsMember] = useState(true);
   const [isPublic, setIsPublic] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
+  const [isForbidden, setIsForbidden] = useState(false);
+
+  // 소유권 검증 로직 (더미 차단 케이스 처리)
+  useEffect(() => {
+    // 1. URL Parameter 'unauthorized=true' 또는 Order ID가 'unauthorized-', 'forbidden-', 'other-'로 시작하는 경우 타인 데이터로 판단
+    const isUnauthorizedParam = searchParams.get("unauthorized") === "true";
+    const isUnauthorizedOrder = orderId?.startsWith("unauthorized") || orderId?.startsWith("forbidden") || orderId?.startsWith("other");
+
+    if (isUnauthorizedParam || isUnauthorizedOrder) {
+      // TODO: 백엔드 연동 시 Supabase RLS / Server Action에서 session.user.id와 order.user_id 비교 필요
+      setIsForbidden(true);
+    } else {
+      setIsForbidden(false);
+    }
+  }, [orderId, searchParams]);
+
+  // 소유권이 없는 경우 403 차단 UI 렌더링
+  if (isForbidden) {
+    return (
+      <main className="min-h-screen bg-background relative pt-24 pb-20 overflow-hidden flex items-center justify-center">
+        <div className="container relative z-10 px-4 md:px-6 mx-auto max-w-md text-center">
+          <div className="bg-[#18181b]/90 backdrop-blur-2xl border border-red-500/20 rounded-[2rem] p-8 shadow-2xl space-y-6">
+            <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto border border-red-500/20">
+              <ShieldAlert className="w-8 h-8 text-red-400" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-white mb-2">접근 권한이 없습니다</h1>
+              <p className="text-slate-400 text-sm leading-relaxed">
+                해당 꿈 해석 리포트의 열람 권한이 없거나 타인의 주문 내역입니다.<br />본인의 계정으로 로그인 또는 비회원 조회를 진행해 주세요.
+              </p>
+            </div>
+            <div className="pt-2 flex flex-col gap-3">
+              <Button 
+                onClick={() => router.push("/")}
+                className="w-full bg-gradient-to-r from-dream-purple to-dream-pink text-white font-semibold py-6 rounded-xl"
+              >
+                메인 페이지로 이동
+              </Button>
+              <Button 
+                variant="outline"
+                onClick={() => router.push("/guest-login")}
+                className="w-full border-white/20 text-slate-300 py-6 rounded-xl"
+              >
+                비회원 주문 조회하기
+              </Button>
+            </div>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   // 카카오 SDK 초기화 (더미 키 사용)
   useEffect(() => {
