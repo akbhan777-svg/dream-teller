@@ -16,20 +16,29 @@ export const GET = async (request: Request) => {
 
       const user = data.user;
       if (user) {
-        // Sync user session to public.users database table
-        const { error: syncError } = await supabase
+        // 기존에 등록된 유저인지 확인하여 커스텀 닉네임이 덮어씌워지는 현상 방지
+        const { data: existingUser } = await supabase
           .from("users")
-          .upsert({
-            id: user.id,
-            role: "member",
-            provider: user.app_metadata.provider || "google",
-            email: user.email,
-            nickname: user.user_metadata.full_name || user.email?.split("@")[0] || "사용자",
-            updated_at: new Date().toISOString(),
-          }, { onConflict: "id" });
+          .select("id")
+          .eq("id", user.id)
+          .maybeSingle();
 
-        if (syncError) {
-          console.error("public.users 테이블 사용자 동기화 에러:", syncError);
+        if (!existingUser) {
+          // 신규 유저일 때만 public.users 테이블에 초기 프로필 생성
+          const { error: syncError } = await supabase
+            .from("users")
+            .insert({
+              id: user.id,
+              role: "member",
+              provider: user.app_metadata.provider || "google",
+              email: user.email,
+              nickname: user.user_metadata.full_name || user.email?.split("@")[0] || "사용자",
+              remaining_interprets: 0,
+            });
+
+          if (syncError) {
+            console.error("public.users 테이블 신규 사용자 등록 에러:", syncError);
+          }
         }
       }
     } catch (err) {
