@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
-import { Edit2, Check, X, Moon, CreditCard, History, LogOut, Award, CalendarDays, Sparkles, Loader2 } from "lucide-react";
+import { Edit2, Check, X, Moon, CreditCard, History, LogOut, Award, CalendarDays, Sparkles, Loader2, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
