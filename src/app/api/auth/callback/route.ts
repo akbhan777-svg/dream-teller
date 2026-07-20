@@ -26,17 +26,20 @@ export const GET = async (request: Request) => {
           .maybeSingle();
 
         if (!existingUser) {
+          type UserInsert = Database["public"]["Tables"]["users"]["Insert"];
+          const newUserData: UserInsert = {
+            id: user.id,
+            role: "member",
+            provider: user.app_metadata.provider || "google",
+            email: user.email ?? null,
+            nickname: user.user_metadata.full_name || user.email?.split("@")[0] || "사용자",
+            remaining_interprets: 0,
+          };
+
           // 신규 유저일 때만 public.users 테이블에 초기 프로필 생성
           const { error: syncError } = await supabase
             .from("users")
-            .insert({
-              id: user.id,
-              role: "member",
-              provider: user.app_metadata.provider || "google",
-              email: user.email,
-              nickname: user.user_metadata.full_name || user.email?.split("@")[0] || "사용자",
-              remaining_interprets: 0,
-            });
+            .insert(newUserData);
 
           if (syncError) {
             console.error("public.users 테이블 신규 사용자 등록 에러:", syncError);
