@@ -38,7 +38,7 @@ export const GET = async (request: Request) => {
           // 신규 유저일 때만 public.users 테이블에 초기 프로필 생성
           const { error: syncError } = await supabase
             .from("users")
-            .insert(newUserData);
+            .insert(newUserData as any);
 
           if (syncError) {
             console.error("public.users 테이블 신규 사용자 등록 에러:", syncError);
