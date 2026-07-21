@@ -18,8 +18,7 @@ export const GET = async (request: Request) => {
       const user = data.user;
       if (user) {
         // 기존에 등록된 유저인지 확인하여 커스텀 닉네임이 덮어씌워지는 현상 방지
-        const { data: existingUser } = await supabase
-          .from("users")
+        const { data: existingUser } = await (supabase.from("users") as any)
           .select("id")
           .eq("id", user.id)
           .maybeSingle();
@@ -36,9 +35,8 @@ export const GET = async (request: Request) => {
           };
 
           // 신규 유저일 때만 public.users 테이블에 초기 프로필 생성
-          const { error: syncError } = await supabase
-            .from("users")
-            .insert(newUserData as any);
+          const { error: syncError } = await (supabase.from("users") as any)
+            .insert(newUserData);
 
           if (syncError) {
             console.error("public.users 테이블 신규 사용자 등록 에러:", syncError);
