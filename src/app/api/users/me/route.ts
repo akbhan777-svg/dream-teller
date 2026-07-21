@@ -25,7 +25,7 @@ export const PATCH = async (request: Request) => {
     // Update nickname in public.users table
     const { error: updateError } = await supabase
       .from("users")
-      .update({ nickname: nickname.trim(), updated_at: new Date().toISOString() })
+      .update({ nickname: nickname.trim(), updated_at: new Date().toISOString() } as any)
       .eq("id", user.id);
 
     if (updateError) {
