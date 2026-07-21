@@ -1,6 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
 import { Database } from "@/types/database.types";
-import { SupabaseClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 
 export const GET = async (request: Request) => {
@@ -10,7 +9,7 @@ export const GET = async (request: Request) => {
 
   if (code) {
     try {
-      const supabase: SupabaseClient<Database> = await createClient();
+      const supabase = await createClient();
       
       // Exchange OAuth code for Supabase Auth session tokens
       const { data, error } = await supabase.auth.exchangeCodeForSession(code);
