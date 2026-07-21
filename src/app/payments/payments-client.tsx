@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import PaymentWidget from "@/components/payments/payment-widget";
 import { Receipt } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -11,13 +11,16 @@ export default function PaymentsClient() {
   const [orderId, setOrderId] = useState("");
   const [customerKey, setCustomerKey] = useState("");
 
-  const amountParam = searchParams.get("amount");
   const planParam = searchParams.get("plan");
   const expertParam = searchParams.get("expert");
+  const includesImageParam = searchParams.get("includesImage") !== "false"; // 기본값 true
 
-  const amount = amountParam ? parseInt(amountParam, 10) : 1500;
+  let amount = includesImageParam ? 2000 : 1500;
+  if (planParam === "pass5") amount = 7200;
+  else if (planParam === "pass10") amount = 13500;
+  else if (planParam === "use_pass") amount = 0;
   
-  let planName = "1회 해석권 (단판)";
+  let planName = includesImageParam ? "1회 해석권 (단판 + AI 이미지 포함)" : "1회 해석권 (단판)";
   if (planParam === "pass5") planName = "5회 해석권 (다회권)";
   else if (planParam === "pass10") planName = "10회 해석권 (다회권)";
   else if (planParam === "use_pass") planName = "보유 횟수 사용";
@@ -32,15 +35,87 @@ export default function PaymentsClient() {
   const expertName = expertParam && expertMap[expertParam] ? expertMap[expertParam] : "전문가";
   const orderName = `[Dream Teller] ${expertName} 관점 - ${planName}`;
 
-  useEffect(() => {
-    // Generate unique order ID and customer key for widget init
-    setOrderId(`ORDER_${Math.random().toString(36).substring(2, 11)}`);
-    // 비회원은 ANONYMOUS, 회원은 고유 식별자 사용. 여기서는 테스트용 난수 발급.
-    setCustomerKey(`CUSTOMER_${Math.random().toString(36).substring(2, 11)}`);
-  }, []);
+  const [isLoading, setIsLoading] = useState(true);
+  const isFetchedRef = useRef(false);
 
-  if (!orderId || !customerKey) {
-    return null; // or a skeleton loader
+  useEffect(() => {
+    // 다회권 차감 플로우인 경우 주문서를 미리 생성하지 않음 (버튼 클릭 시 생성)
+    if (planParam === "use_pass") {
+      setIsLoading(false);
+      return;
+    }
+
+    if (isFetchedRef.current) return;
+    isFetchedRef.current = true;
+
+    const dreamContent = sessionStorage.getItem("dreamContent") || "";
+    
+    const createPendingOrder = async () => {
+      try {
+        const res = await fetch("/api/orders", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            amount,
+            plan: planParam || "single",
+            expertField: expertParam || "freud",
+            includesImage: includesImageParam,
+            dreamContent
+          })
+        });
+        
+        const data = await res.json();
+        if (data.success) {
+          setOrderId(data.orderId);
+          setCustomerKey(data.customerKey || "ANONYMOUS"); 
+        } else {
+          console.error("Order creation failed:", data.error);
+          alert("주문서 생성에 실패했습니다: " + data.error);
+        }
+      } catch (err) {
+        console.error("Fetch order error:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    createPendingOrder();
+  }, [amount, planParam, expertParam]);
+
+  const handleUsePass = async () => {
+    setIsLoading(true);
+    const dreamContent = sessionStorage.getItem("dreamContent") || "";
+    try {
+      const res = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount: 0,
+          plan: "use_pass",
+          expertField: expertParam || "freud",
+          dreamContent
+        })
+      });
+      const data = await res.json();
+      if (data.success && data.orderId) {
+        // 즉시 차감 및 결제 승인되었으므로 해몽 대기 페이지로 이동
+        window.location.href = `/dream-result/${data.orderId}`;
+      } else {
+        alert("잔여 횟수 사용에 실패했습니다: " + data.error);
+        setIsLoading(false);
+      }
+    } catch (err) {
+      console.error("Use pass error:", err);
+      setIsLoading(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="w-full flex items-center justify-center p-12">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-dream-purple"></div>
+      </div>
+    );
   }
 
   // 보유 횟수 차감 처리인 경우 별도의 UI 제공 (결제 모듈 미사용)
@@ -64,12 +139,20 @@ export default function PaymentsClient() {
             </div>
           </div>
           <button 
-            onClick={() => window.location.href = "/payments/success"}
+            onClick={handleUsePass}
             className="w-full bg-gradient-to-r from-dream-purple to-dream-blue text-white font-bold py-4 rounded-xl hover:opacity-90 transition-opacity"
           >
             차감하고 시작하기
           </button>
         </div>
+      </div>
+    );
+  }
+
+  if (!orderId) {
+    return (
+      <div className="w-full text-center p-12 text-slate-400">
+        주문서를 생성할 수 없습니다. 뒤로 돌아가 다시 시도해주세요.
       </div>
     );
   }

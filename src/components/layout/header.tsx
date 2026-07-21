@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Menu } from "lucide-react";
 import MobileDrawer from "@/components/layout/mobile-drawer";
+import { createClient } from "@/lib/supabase/client";
 
 /**
  * 상단 네비게이션 바 (Header)
@@ -16,8 +17,44 @@ import MobileDrawer from "@/components/layout/mobile-drawer";
 const Header = () => {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
-  // TODO: Auth 연동 후 실제 로그인 상태 판별 로직으로 교체
-  const isLoggedIn = false;
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 768) {
+        setIsDrawerOpen(false);
+      }
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const supabase = createClient();
+
+  useEffect(() => {
+    const getSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        setUser(session?.user ?? null);
+      } catch (err) {
+        console.error("세션 획득 에러:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    getSession();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      setLoading(false);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [supabase]);
+
+  const isLoggedIn = !!user;
 
   return (
     <>
@@ -33,7 +70,9 @@ const Header = () => {
 
           {/* 데스크톱 네비게이션 (md 이상) */}
           <nav className="hidden items-center gap-6 md:flex">
-            {isLoggedIn ? (
+            {loading ? (
+              <div className="h-5 w-16 animate-pulse rounded bg-muted/40" />
+            ) : isLoggedIn ? (
               // 회원 메뉴
               <Link
                 href="/my-page"
@@ -45,7 +84,7 @@ const Header = () => {
               // 비회원 메뉴
               <>
                 <Link
-                  href="/auth/login"
+                  href="/auth"
                   className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
                 >
                   로그인

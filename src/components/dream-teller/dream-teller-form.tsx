@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronDown, Sparkles, Brain, Moon, Eye, CheckCircle2, Phone, Lock, EyeOff, UserCheck, UserX, Ticket } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
 
 type Step = 1 | 2 | 3 | 4;
 type ExpertField = "freud" | "jung" | "neuroscience" | "gestalt" | null;
@@ -21,8 +22,33 @@ export default function DreamTellerForm() {
   const [activeStep, setActiveStep] = useState<Step>(1);
   const [expandAll, setExpandAll] = useState(false);
 
-  // 테스트 및 세션 시뮬레이션을 위한 로그인 여부 상태 (기본값: 비로그인 상태)
+  // 실제 Supabase 세션 기반 로그인 여부 상태 및 잔여 횟수 State
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [remainingPasses, setRemainingPasses] = useState(0);
+  const supabase = createClient();
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setIsLoggedIn(true);
+        // DB에서 잔여 횟수 조회
+        const { data: userData } = await supabase
+          .from("users")
+          .select("remaining_interprets")
+          .eq("id", user.id)
+          .single();
+          
+        if (userData) {
+          setRemainingPasses(userData.remaining_interprets || 0);
+        }
+      } else {
+        setIsLoggedIn(false);
+        setRemainingPasses(0);
+      }
+    };
+    checkAuth();
+  }, [supabase]);
 
   // Form State
   const [expert, setExpert] = useState<ExpertField>(null);
@@ -92,6 +118,7 @@ export default function DreamTellerForm() {
       plan: paymentOption || "single",
       expert: expert || "",
       isLoggedIn: isLoggedIn.toString(),
+      includesImage: includeImage.toString(),
     });
     
     if (typeof window !== "undefined") {
@@ -109,30 +136,11 @@ export default function DreamTellerForm() {
 
   return (
     <div className="w-full max-w-4xl mx-auto space-y-6 relative pb-32">
-      {/* 모두 펼쳐보기 및 회원/비회원 전환 토글 (테스트 목적) */}
-      <div className="flex items-center justify-between mb-4">
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={() => {
-            const nextVal = !isLoggedIn;
-            setIsLoggedIn(nextVal);
-            if (nextVal && activeStep === 4) {
-              setActiveStep(3);
-            }
-          }}
-          className="border-white/10 bg-black/40 text-slate-300 hover:text-white"
-        >
-          {isLoggedIn ? (
-            <><UserCheck className="w-4 h-4 mr-2 text-dream-pink" /> 회원 모드 (Step 1~3)</>
-          ) : (
-            <><UserX className="w-4 h-4 mr-2 text-slate-400" /> 비회원 모드 (Step 1~4)</>
-          )}
-        </Button>
-
+      {/* 상단 컨트롤 영역 (모두 펼쳐보기) */}
+      <div className="flex items-center justify-end mb-4">
         <button
           onClick={() => setExpandAll(!expandAll)}
-          className="text-sm text-dream-purple-light hover:text-white transition-colors flex items-center gap-2"
+          className="text-sm text-dream-purple-light hover:text-white transition-colors flex items-center gap-2 bg-black/40 px-3 py-1.5 rounded-lg border border-white/10"
         >
           {expandAll ? "단계별로 보기" : "모두 펼쳐보기"}
           <ChevronDown className={cn("w-4 h-4 transition-transform", expandAll && "rotate-180")} />
@@ -309,21 +317,48 @@ export default function DreamTellerForm() {
             <div className="space-y-4">
               {/* 잔여 횟수 사용 (회원 전용) */}
               {isLoggedIn && (
-                <label className={cn("flex items-start justify-between p-5 rounded-xl border cursor-pointer transition-all relative overflow-hidden", paymentOption === "use_pass" ? "border-emerald-400 bg-emerald-500/20 shadow-[0_0_15px_rgba(52,211,153,0.15)]" : "border-white/20 bg-[#13131b] hover:bg-[#1a1a24] hover:border-white/30")}>
-                  <div className="absolute top-0 right-0 bg-emerald-500 text-white text-xs font-bold px-3 py-1 rounded-bl-lg shadow-md z-10">보유 잔여 횟수 차감</div>
+                <label 
+                  onClick={() => {
+                    if (remainingPasses < 1) {
+                      alert("보유하신 다회권 잔여 횟수가 없습니다 (0회). 5회 또는 10회 다회권을 먼저 구매해 주세요.");
+                      setPaymentOption("single");
+                    }
+                  }}
+                  className={cn(
+                    "flex items-start justify-between p-5 rounded-xl border transition-all relative overflow-hidden",
+                    remainingPasses < 1 ? "opacity-60 cursor-not-allowed border-white/10 bg-[#13131b]" : "cursor-pointer",
+                    paymentOption === "use_pass" && remainingPasses >= 1 ? "border-emerald-400 bg-emerald-500/20 shadow-[0_0_15px_rgba(52,211,153,0.15)]" : "border-white/20 bg-[#13131b] hover:bg-[#1a1a24] hover:border-white/30"
+                  )}
+                >
+                  <div className={cn("absolute top-0 right-0 text-white text-xs font-bold px-3 py-1 rounded-bl-lg shadow-md z-10", remainingPasses > 0 ? "bg-emerald-500" : "bg-slate-600")}>
+                    {remainingPasses > 0 ? `보유 횟수 ${remainingPasses}회` : "보유 횟수 0회"}
+                  </div>
                   <div className="flex items-start gap-4 relative z-10">
-                    <input type="radio" name="payment" checked={paymentOption === "use_pass"} onChange={() => handlePaymentOptionSelect("use_pass")} className="mt-1 w-4 h-4 accent-emerald-400" />
+                    <input 
+                      type="radio" 
+                      name="payment" 
+                      disabled={remainingPasses < 1}
+                      checked={paymentOption === "use_pass" && remainingPasses >= 1} 
+                      onChange={() => {
+                        if (remainingPasses >= 1) handlePaymentOptionSelect("use_pass");
+                      }} 
+                      className="mt-1 w-4 h-4 accent-emerald-400 disabled:opacity-30" 
+                    />
                     <div>
                       <h3 className="text-lg font-bold text-white flex items-center gap-2">
                         <Ticket className="w-5 h-5 text-emerald-400" />
-                        잔여 횟수 사용
+                        잔여 횟수 사용 {remainingPasses > 0 && <span className="text-xs bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full">{remainingPasses}회 보유 중</span>}
                       </h3>
-                      <p className="text-slate-400 text-sm mt-1">보유 중인 다회권의 잔여 횟수 1회를 사용하여 해석합니다. 이미지 생성 포함.</p>
+                      <p className="text-slate-400 text-sm mt-1">
+                        {remainingPasses > 0 
+                          ? "보유 중인 다회권의 잔여 횟수 1회를 사용하여 해석합니다. (이미지 포함)" 
+                          : "보유 중인 잔여 횟수가 없습니다. 아래 다회권을 구매하시면 자동 충전됩니다."}
+                      </p>
                     </div>
                   </div>
                   <div className="text-right relative z-10">
                     <div className="text-xl font-bold text-emerald-400">0원</div>
-                    <div className="text-xs text-slate-400">잔여 횟수 차감</div>
+                    <div className="text-xs text-slate-400">잔여 1회 차감</div>
                   </div>
                 </label>
               )}

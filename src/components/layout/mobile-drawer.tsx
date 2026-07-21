@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { X } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 
 /**
  * MobileDrawer 컴포넌트의 Props 타입
@@ -19,6 +20,33 @@ interface MobileDrawerProps {
  * PRD 5.1 - Header 반응형 요구사항 구현.
  */
 const MobileDrawer = ({ isOpen, onClose }: MobileDrawerProps) => {
+  const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const supabase = createClient();
+
+  useEffect(() => {
+    const getSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        setUser(session?.user ?? null);
+      } catch (err) {
+        console.error("세션 획득 에러:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    getSession();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      setLoading(false);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [supabase]);
+
   // Drawer 열림 시 body 스크롤 잠금
   useEffect(() => {
     if (isOpen) {
@@ -32,13 +60,17 @@ const MobileDrawer = ({ isOpen, onClose }: MobileDrawerProps) => {
     };
   }, [isOpen]);
 
+  const isLoggedIn = !!user;
+
   /** 네비게이션 링크 아이템 목록 */
-  // TODO: Auth 연동 후 회원/비회원 상태에 따라 메뉴 항목 분기 처리
-  const navItems = [
-    { href: "/auth/login", label: "로그인" },
-    { href: "/guest-check", label: "비회원 주문 조회" },
-    { href: "/my-page", label: "마이페이지" },
-  ];
+  const navItems = loading
+    ? []
+    : isLoggedIn
+    ? [{ href: "/my-page", label: "마이페이지" }]
+    : [
+        { href: "/auth", label: "로그인" },
+        { href: "/guest-check", label: "비회원 주문 조회" },
+      ];
 
   return (
     <>
@@ -67,6 +99,7 @@ const MobileDrawer = ({ isOpen, onClose }: MobileDrawerProps) => {
               href="/"
               onClick={onClose}
               className="text-lg font-bold text-dream-purple"
+              tabIndex={isOpen ? 0 : -1}
             >
               Dream Teller
             </Link>
@@ -74,6 +107,7 @@ const MobileDrawer = ({ isOpen, onClose }: MobileDrawerProps) => {
               onClick={onClose}
               className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
               aria-label="메뉴 닫기"
+              tabIndex={isOpen ? 0 : -1}
             >
               <X className="h-5 w-5" />
             </button>
@@ -88,9 +122,13 @@ const MobileDrawer = ({ isOpen, onClose }: MobileDrawerProps) => {
                     key={item.href}
                     href={item.href}
                     onClick={onClose}
-                    className="w-full bg-orange-400 text-white py-4 mb-2 text-center text-base font-bold rounded-full transition-opacity hover:opacity-90"
+                    className="group relative inline-flex w-full p-[2px] mb-2 rounded-full bg-gradient-to-r from-dream-pink via-dream-purple to-dream-blue overflow-hidden transition-transform duration-300 hover:scale-[1.02] hover:shadow-[0_0_40px_rgba(139,92,246,0.4)]"
+                    tabIndex={isOpen ? 0 : -1}
                   >
-                    {item.label}
+                    <span className="absolute inset-0 bg-gradient-to-r from-dream-pink via-dream-purple to-dream-blue opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-xl" />
+                    <div className="relative flex w-full justify-center items-center bg-background/80 backdrop-blur-md hover:bg-transparent text-base font-bold text-white py-4 rounded-full border border-white/5 transition-all duration-300 z-10">
+                      {item.label}
+                    </div>
                   </Link>
                 );
               }
@@ -100,6 +138,7 @@ const MobileDrawer = ({ isOpen, onClose }: MobileDrawerProps) => {
                   href={item.href}
                   onClick={onClose}
                   className="px-4 py-3 text-base font-medium text-foreground transition-colors hover:bg-dream-purple/10 hover:text-dream-purple rounded-lg"
+                  tabIndex={isOpen ? 0 : -1}
                 >
                   {item.label}
                 </Link>
