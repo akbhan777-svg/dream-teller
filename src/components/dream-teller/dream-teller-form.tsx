@@ -30,8 +30,21 @@ export default function DreamTellerForm() {
   useEffect(() => {
     const checkAuth = async () => {
       const { data: { user } } = await supabase.auth.getUser();
+      
+      // 세션 스토리지에서 보존된 데이터 복원
+      const savedContent = sessionStorage.getItem("dreamContent");
+      const savedPhone = sessionStorage.getItem("guestPhone") || sessionStorage.getItem("guestLoginPhone");
+      const savedPassword = sessionStorage.getItem("guestPassword") || sessionStorage.getItem("guestLoginPassword");
+      const isReinterpreting = sessionStorage.getItem("isReinterpreting") === "true";
+
       if (user) {
         setIsLoggedIn(true);
+        // 회원인 경우 1단계를 자동으로 패스하고 바로 2단계(해몽 관점 선택)부터 활성화
+        setActiveStep(2);
+        if (savedContent && isReinterpreting) {
+          setDreamContent(savedContent);
+        }
+
         // DB에서 잔여 횟수 조회
         const { data: userData } = await supabase
           .from("users")
@@ -40,12 +53,31 @@ export default function DreamTellerForm() {
           .single();
           
         if (userData) {
-          setRemainingPasses(userData.remaining_interprets || 0);
+          const userRecord = userData as { remaining_interprets?: number };
+          setRemainingPasses(userRecord.remaining_interprets || 0);
         }
       } else {
         setIsLoggedIn(false);
         setRemainingPasses(0);
+        
+        // 이미 비회원 주문 조회를 진행하여 세션이 존재하는 비회원 또는 재해몽 신청 시 1단계를 생략하고 바로 2단계로 이동
+        if (savedPhone && savedPassword) {
+          setGuestPhone(savedPhone);
+          setGuestPassword(savedPassword);
+          if (savedContent && isReinterpreting) {
+            setDreamContent(savedContent);
+          }
+          setActiveStep(2);
+        } else {
+          // 세션 정보가 없는 최초 진입 비회원만 1단계부터 시작
+          setActiveStep(1);
+          setGuestPhone("");
+          setGuestPassword("");
+        }
       }
+
+      // 참고: isReinterpreting 플래그는 여기서 지우지 않고 handlePayment(결제 완료 시점)에서 지움으로써
+      // React Strict Mode의 useEffect 2회 실행 문제나 페이지 새로고침 시에도 UX가 유지되도록 함
     };
     checkAuth();
   }, [supabase]);
@@ -94,12 +126,15 @@ export default function DreamTellerForm() {
     }
   };
 
-  // 결제 옵션 선택 시 비회원은 즉시 Step 4로 화면 전환 처리
+  const [showMemberOnlyModal, setShowMemberOnlyModal] = useState(false);
+
+  // 결제 옵션 선택 시 비회원은 다회권(pass5, pass10) 제한 및 팝업 안내
   const handlePaymentOptionSelect = (option: PaymentOption) => {
-    setPaymentOption(option);
-    if (!isLoggedIn) {
-      setTimeout(() => handleNextStep(4), 300);
+    if (!isLoggedIn && (option === "pass5" || option === "pass10")) {
+      setShowMemberOnlyModal(true);
+      return;
     }
+    setPaymentOption(option);
   };
 
   // 휴대폰 번호 하이픈 자동 포맷터
@@ -111,6 +146,11 @@ export default function DreamTellerForm() {
   };
 
   const handlePayment = () => {
+    if (!isLoggedIn && (paymentOption === "pass5" || paymentOption === "pass10")) {
+      setShowMemberOnlyModal(true);
+      return;
+    }
+
     const amount = calculateTotal();
     
     const searchParams = new URLSearchParams({
@@ -127,6 +167,8 @@ export default function DreamTellerForm() {
         sessionStorage.setItem("guestPhone", guestPhone);
         sessionStorage.setItem("guestPassword", guestPassword);
       }
+      // 결제 단계로 넘어가면 재해석 플래그 초기화
+      sessionStorage.removeItem("isReinterpreting");
     }
 
     router.push(`/payments?${searchParams.toString()}`);
@@ -147,7 +189,7 @@ export default function DreamTellerForm() {
         </button>
       </div>
 
-      {/* Step 1: 전문가 선택 */}
+      {/* Step 1: 본인 인증 및 비회원 정보 입력 */}
       <div 
         ref={step1Ref} 
         className={cn(
@@ -162,9 +204,150 @@ export default function DreamTellerForm() {
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-bold text-white flex items-center gap-3">
               <span className="flex items-center justify-center w-8 h-8 rounded-full bg-dream-purple/20 text-dream-purple-light text-sm">1</span>
+              본인 확인 (로그인 또는 비회원)
+            </h2>
+            {((isLoggedIn) || (!isLoggedIn && guestPhone.length >= 12 && guestPassword.length >= 4)) && !isStepOpen(1) && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-300 font-normal bg-white/10 px-2.5 py-1 rounded-md border border-white/5">
+                  {isLoggedIn ? "회원 인증됨" : "비회원 정보 입력됨"}
+                </span>
+                <CheckCircle2 className="w-5 h-5 text-dream-blue-light" />
+                <span className="text-xs text-dream-purple-light hover:text-white transition-colors ml-1 font-semibold">펼쳐보기</span>
+              </div>
+            )}
+          </div>
+          
+          <div className={cn("transition-all duration-500 origin-top", isStepOpen(1) ? "max-h-[800px] opacity-100 mt-4" : "max-h-0 opacity-0 overflow-hidden m-0")}>
+            {isLoggedIn ? (
+              <div className="flex flex-col items-center justify-center py-6 text-center space-y-4">
+                <div className="w-16 h-16 rounded-full bg-emerald-500/20 flex items-center justify-center mb-2">
+                  <UserCheck className="w-8 h-8 text-emerald-400" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-white">회원 인증 완료</h3>
+                  <p className="text-slate-400 text-sm mt-2">안전하게 해몽을 진행하실 수 있습니다.</p>
+                </div>
+                <Button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleNextStep(2);
+                  }}
+                  className="mt-4 bg-gradient-to-r from-dream-purple to-dream-pink text-white px-8 py-2.5 rounded-full hover:scale-105 transition-all shadow-lg"
+                >
+                  다음 단계로
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                <div className="p-5 rounded-xl border border-dream-blue/30 bg-dream-blue/10 flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div>
+                    <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                      <UserCheck className="w-5 h-5 text-dream-blue-light" />
+                      회원이신가요? (소셜 3초 간편가입 포함)
+                    </h3>
+                    <p className="text-slate-300 text-sm mt-1">로그인 및 가입 시 작성 중인 데이터가 보존되며, 다회권 할인 혜택도 제공됩니다.</p>
+                  </div>
+                  <Button onClick={() => router.push("/auth")} className="whitespace-nowrap bg-dream-blue hover:bg-dream-blue-light text-white font-bold">
+                    로그인 / 회원가입
+                  </Button>
+                </div>
+
+                <div className="relative flex items-center py-2">
+                  <div className="flex-grow border-t border-white/10"></div>
+                  <span className="flex-shrink-0 mx-4 text-slate-500 text-sm">또는 비회원으로 계속하기</span>
+                  <div className="flex-grow border-t border-white/10"></div>
+                </div>
+
+                <div className="space-y-4">
+                  <p className="text-xs text-slate-400">
+                    결제 및 분석 완료 후, 해몽 보고서를 다시 열어볼 때 사용할 연락처와 비밀번호를 설정해 주세요.
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-slate-300 px-1 flex items-center gap-1.5"><Phone className="w-3.5 h-3.5 text-dream-purple-light" /> 전화번호</label>
+                      <input
+                        type="tel"
+                        value={guestPhone}
+                        onChange={(e) => setGuestPhone(formatPhoneNumber(e.target.value))}
+                        maxLength={13}
+                        placeholder="010-1234-5678"
+                        className="w-full bg-[#13131b] text-white p-3.5 rounded-xl border border-white/20 focus:border-dream-purple focus:bg-[#0d0d12] focus:outline-none text-sm placeholder:text-slate-500 shadow-inner transition-all"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-slate-300 px-1 flex items-center gap-1.5"><Lock className="w-3.5 h-3.5 text-dream-purple-light" /> 조회용 보안 PIN (숫자 4자리)</label>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          maxLength={4}
+                          name="guest-pin"
+                          autoComplete="off"
+                          data-lpignore="true"
+                          value={guestPassword}
+                          onChange={(e) => setGuestPassword(e.target.value.replace(/\D/g, ""))}
+                          placeholder="예: 8942 (숫자 4자리)"
+                          style={{ WebkitTextSecurity: showPassword ? "none" : "disc" }}
+                          className="w-full bg-[#13131b] text-white p-3.5 rounded-xl border border-white/20 focus:border-dream-purple focus:bg-[#0d0d12] focus:outline-none text-sm placeholder:text-slate-500 pr-10 shadow-inner transition-all font-mono tracking-widest"
+                        />
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowPassword(!showPassword);
+                          }}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors p-1"
+                        >
+                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex justify-end mt-4">
+                    <Button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleNextStep(2);
+                      }} 
+                      disabled={guestPhone.length < 12 || guestPassword.length < 4}
+                      className={cn(
+                        "transition-all duration-300 font-semibold px-8 py-2.5 rounded-full shadow-lg border",
+                        guestPhone.length >= 12 && guestPassword.length >= 4
+                          ? "bg-gradient-to-r from-dream-purple to-dream-pink text-white border-white/20 hover:scale-105" 
+                          : "bg-white/10 text-slate-400 border-white/10 opacity-50 cursor-not-allowed"
+                      )}
+                    >
+                      다음 단계로
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Step 2: 전문가 선택 */}
+      <div 
+        ref={step2Ref} 
+        className={cn(
+          "rounded-2xl border transition-all duration-500 overflow-hidden", 
+          isStepOpen(2) 
+            ? "border-dream-purple/40 bg-[#1f1f2e] shadow-[0_0_30px_rgba(139,92,246,0.15)]" 
+            : "border-white/10 bg-[#161622]/85 opacity-55 hover:opacity-85 hover:border-white/20 cursor-pointer",
+          activeStep < 2 && !expandAll && "hidden"
+        )} 
+        onClick={() => !isStepOpen(2) && activeStep >= 2 && setActiveStep(2)}
+      >
+        <div className="p-6 md:p-8">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-bold text-white flex items-center gap-3">
+              <span className="flex items-center justify-center w-8 h-8 rounded-full bg-dream-purple/20 text-dream-purple-light text-sm">2</span>
               원하는 해몽 관점을 선택하세요
             </h2>
-            {expert && !isStepOpen(1) && (
+            {expert && !isStepOpen(2) && (
               <div className="flex items-center gap-2">
                 <span className="text-xs text-slate-300 font-normal bg-white/10 px-2.5 py-1 rounded-md border border-white/5">
                   {EXPERTS.find(e => e.id === expert)?.name || ""}
@@ -175,14 +358,14 @@ export default function DreamTellerForm() {
             )}
           </div>
           
-          <div className={cn("grid grid-cols-1 sm:grid-cols-2 gap-4 transition-all duration-500 origin-top", isStepOpen(1) ? "max-h-[800px] opacity-100 mt-4" : "max-h-0 opacity-0 overflow-hidden m-0")}>
+          <div className={cn("grid grid-cols-1 sm:grid-cols-2 gap-4 transition-all duration-500 origin-top", isStepOpen(2) ? "max-h-[800px] opacity-100 mt-4" : "max-h-0 opacity-0 overflow-hidden m-0")}>
             {EXPERTS.map((exp) => (
               <button
                 key={exp.id}
                 onClick={(e) => {
                   e.stopPropagation();
                   setExpert(exp.id as ExpertField);
-                  setTimeout(() => handleNextStep(2), 300);
+                  setTimeout(() => handleNextStep(3), 300);
                 }}
                 className={cn(
                   "flex flex-col items-start p-6 rounded-xl border text-left transition-all duration-300 relative overflow-hidden group cursor-pointer",
@@ -201,25 +384,25 @@ export default function DreamTellerForm() {
         </div>
       </div>
 
-      {/* Step 2: 꿈 내용 입력 */}
+      {/* Step 3: 꿈 내용 입력 */}
       <div 
-        ref={step2Ref} 
+        ref={step3Ref} 
         className={cn(
           "rounded-2xl border transition-all duration-500 overflow-hidden", 
-          isStepOpen(2) 
+          isStepOpen(3) 
             ? "border-dream-purple/40 bg-[#1f1f2e] shadow-[0_0_30px_rgba(139,92,246,0.15)]" 
             : "border-white/10 bg-[#161622]/85 opacity-55 hover:opacity-85 hover:border-white/20 cursor-pointer",
-          activeStep < 2 && !expandAll && "hidden"
+          activeStep < 3 && !expandAll && "hidden"
         )} 
-        onClick={() => !isStepOpen(2) && activeStep >= 2 && setActiveStep(2)}
+        onClick={() => !isStepOpen(3) && activeStep >= 3 && setActiveStep(3)}
       >
         <div className="p-6 md:p-8">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-bold text-white flex items-center gap-3">
-              <span className="flex items-center justify-center w-8 h-8 rounded-full bg-dream-purple/20 text-dream-purple-light text-sm">2</span>
+              <span className="flex items-center justify-center w-8 h-8 rounded-full bg-dream-purple/20 text-dream-purple-light text-sm">3</span>
               어떤 꿈을 꾸셨나요?
             </h2>
-            {dreamContent.trim().length >= 20 && !isStepOpen(2) && (
+            {dreamContent.trim().length >= 20 && !isStepOpen(3) && (
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-5 h-5 text-dream-blue-light" />
                 <span className="text-xs text-dream-purple-light hover:text-white transition-colors ml-1 font-semibold">펼쳐보기</span>
@@ -227,7 +410,7 @@ export default function DreamTellerForm() {
             )}
           </div>
           
-          <div className={cn("transition-all duration-500 origin-top", isStepOpen(2) ? "max-h-[800px] opacity-100 mt-4" : "max-h-0 opacity-0 overflow-hidden m-0")}>
+          <div className={cn("transition-all duration-500 origin-top", isStepOpen(3) ? "max-h-[800px] opacity-100 mt-4" : "max-h-0 opacity-0 overflow-hidden m-0")}>
             <div className="relative group">
               <div className="absolute -inset-0.5 bg-gradient-to-r from-dream-pink via-dream-purple to-dream-blue rounded-xl blur opacity-25 group-focus-within:opacity-60 transition duration-1000 group-focus-within:duration-200" />
               <textarea
@@ -267,7 +450,7 @@ export default function DreamTellerForm() {
               <Button 
                 onClick={(e) => {
                   e.stopPropagation();
-                  handleNextStep(3);
+                  handleNextStep(4);
                 }} 
                 disabled={dreamContent.trim().length < 20}
                 className={cn(
@@ -284,25 +467,25 @@ export default function DreamTellerForm() {
         </div>
       </div>
 
-      {/* Step 3: 결제 옵션 */}
+      {/* Step 4: 결제 옵션 */}
       <div 
-        ref={step3Ref} 
+        ref={step4Ref} 
         className={cn(
           "rounded-2xl border transition-all duration-500 overflow-hidden", 
-          isStepOpen(3) 
+          isStepOpen(4) 
             ? "border-dream-purple/40 bg-[#1f1f2e] shadow-[0_0_30px_rgba(139,92,246,0.15)]" 
             : "border-white/10 bg-[#161622]/85 opacity-55 hover:opacity-85 hover:border-white/20 cursor-pointer",
-          activeStep < 3 && !expandAll && "hidden"
+          activeStep < 4 && !expandAll && "hidden"
         )} 
-        onClick={() => !isStepOpen(3) && activeStep >= 3 && setActiveStep(3)}
+        onClick={() => !isStepOpen(4) && activeStep >= 4 && setActiveStep(4)}
       >
         <div className="p-6 md:p-8">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-bold text-white flex items-center gap-3">
-              <span className="flex items-center justify-center w-8 h-8 rounded-full bg-dream-purple/20 text-dream-purple-light text-sm">3</span>
+              <span className="flex items-center justify-center w-8 h-8 rounded-full bg-dream-purple/20 text-dream-purple-light text-sm">4</span>
               결제 옵션 선택
             </h2>
-            {paymentOption && !isStepOpen(3) && (
+            {paymentOption && !isStepOpen(4) && (
               <div className="flex items-center gap-2">
                 <span className="text-xs text-slate-300 font-normal bg-white/10 px-2.5 py-1 rounded-md border border-white/5">
                   {paymentOption === "single" ? "1회권" : paymentOption === "pass5" ? "5회권" : "10회권"}
@@ -313,7 +496,7 @@ export default function DreamTellerForm() {
             )}
           </div>
           
-          <div className={cn("transition-all duration-500 origin-top", isStepOpen(3) ? "max-h-[1000px] opacity-100 mt-4" : "max-h-0 opacity-0 overflow-hidden m-0")}>
+          <div className={cn("transition-all duration-500 origin-top", isStepOpen(4) ? "max-h-[1000px] opacity-100 mt-4" : "max-h-0 opacity-0 overflow-hidden m-0")}>
             <div className="space-y-4">
               {/* 잔여 횟수 사용 (회원 전용) */}
               {isLoggedIn && (
@@ -432,101 +615,77 @@ export default function DreamTellerForm() {
         </div>
       </div>
 
-      {/* Step 4: 비회원 연락처 및 비밀번호 설정 (비회원 모드일 때만 노출) */}
-      {!isLoggedIn && (
-        <div 
-          ref={step4Ref} 
-          className={cn(
-            "rounded-2xl border transition-all duration-500 overflow-hidden", 
-            isStepOpen(4) 
-              ? "border-dream-purple/40 bg-[#1f1f2e] shadow-[0_0_30px_rgba(139,92,246,0.15)]" 
-              : "border-white/10 bg-[#161622]/85 opacity-55 hover:opacity-85 hover:border-white/20 cursor-pointer",
-            activeStep < 4 && !expandAll && "hidden"
-          )} 
-          onClick={() => !isStepOpen(4) && activeStep >= 4 && setActiveStep(4)}
-        >
-          <div className="p-6 md:p-8">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-white flex items-center gap-3">
-                <span className="flex items-center justify-center w-8 h-8 rounded-full bg-dream-purple/20 text-dream-purple-light text-sm">4</span>
-                비회원 정보 입력
-              </h2>
-              {guestPhone.length >= 12 && guestPassword.length >= 4 && !isStepOpen(4) && <CheckCircle2 className="w-6 h-6 text-dream-blue-light" />}
+      {/* Sticky Bottom Checkout Bar */}
+      {(expandAll || activeStep >= 4) && (
+        <div className="fixed bottom-0 left-0 right-0 z-50 p-4 md:p-6 bg-black/60 backdrop-blur-xl border-t border-white/10 animate-in slide-in-from-bottom-full duration-500">
+          <div className="max-w-4xl mx-auto flex items-center justify-between">
+            <div>
+              <p className="text-sm text-slate-400 mb-1">최종 결제 금액</p>
+              <p className="text-2xl md:text-3xl font-black text-white">
+                {calculateTotal().toLocaleString()}<span className="text-lg font-normal text-slate-300 ml-1">원</span>
+              </p>
             </div>
             
-            <div className={cn("transition-all duration-500 origin-top space-y-4", isStepOpen(4) ? "max-h-[800px] opacity-100 mt-4" : "max-h-0 opacity-0 overflow-hidden m-0")}>
-              <p className="text-xs text-slate-400">
-                결제 및 분석 완료 후, 해몽 보고서를 다시 열어볼 때 사용할 연락처와 비밀번호를 설정해 주세요.
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-300 px-1 flex items-center gap-1.5"><Phone className="w-3.5 h-3.5 text-dream-purple-light" /> 전화번호</label>
-                  <input
-                    type="tel"
-                    value={guestPhone}
-                    onChange={(e) => setGuestPhone(formatPhoneNumber(e.target.value))}
-                    maxLength={13}
-                    placeholder="010-1234-5678"
-                    className="w-full bg-[#13131b] text-white p-3.5 rounded-xl border border-white/20 focus:border-dream-purple focus:bg-[#0d0d12] focus:outline-none text-sm placeholder:text-slate-500 shadow-inner transition-all"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-300 px-1 flex items-center gap-1.5"><Lock className="w-3.5 h-3.5 text-dream-purple-light" /> 비밀번호 (4자리 이상)</label>
-                  <div className="relative">
-                    <input
-                      type={showPassword ? "text" : "password"}
-                      value={guestPassword}
-                      onChange={(e) => setGuestPassword(e.target.value)}
-                      placeholder="••••"
-                      className="w-full bg-[#13131b] text-white p-3.5 rounded-xl border border-white/20 focus:border-dream-purple focus:bg-[#0d0d12] focus:outline-none text-sm placeholder:text-slate-500 pr-10 shadow-inner transition-all"
-                    />
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setShowPassword(!showPassword);
-                      }}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors p-1"
-                    >
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                </div>
+            <button 
+              onClick={handlePayment}
+              disabled={
+                !expert || 
+                dreamContent.trim().length < 20 || 
+                (!isLoggedIn && (guestPhone.length < 12 || guestPassword.length < 4 || paymentOption !== "single"))
+              }
+              className="group relative inline-flex p-[2px] rounded-full bg-gradient-to-r from-dream-pink via-dream-purple to-dream-blue overflow-hidden transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105"
+            >
+              <span className="absolute inset-0 bg-gradient-to-r from-dream-pink via-dream-purple to-dream-blue opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-md" />
+              <div className="relative bg-background/80 backdrop-blur-md text-white font-bold px-8 py-3 md:px-12 md:py-4 rounded-full border border-white/5 transition-all z-10 flex items-center gap-2">
+                <Sparkles className="w-5 h-5" />
+                <span>
+                  {paymentOption === "use_pass" ? "해몽 시작하기" : "결제하기"}
+                </span>
               </div>
-            </div>
+            </button>
           </div>
         </div>
       )}
 
-      {/* Sticky Bottom Checkout Bar */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 p-4 md:p-6 bg-black/60 backdrop-blur-xl border-t border-white/10 animate-in slide-in-from-bottom-full duration-500">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <div>
-            <p className="text-sm text-slate-400 mb-1">최종 결제 금액</p>
-            <p className="text-2xl md:text-3xl font-black text-white">
-              {calculateTotal().toLocaleString()}<span className="text-lg font-normal text-slate-300 ml-1">원</span>
-            </p>
-          </div>
-          
-          <button 
-            onClick={(!isLoggedIn && activeStep === 3) ? () => handleNextStep(4) : handlePayment}
-            disabled={
-              !expert || 
-              dreamContent.trim().length < 20 || 
-              (!isLoggedIn && activeStep === 4 && (guestPhone.length < 12 || guestPassword.length < 4))
-            }
-            className="group relative inline-flex p-[2px] rounded-full bg-gradient-to-r from-dream-pink via-dream-purple to-dream-blue overflow-hidden transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105"
-          >
-            <span className="absolute inset-0 bg-gradient-to-r from-dream-pink via-dream-purple to-dream-blue opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-md" />
-            <div className="relative bg-background/80 backdrop-blur-md text-white font-bold px-8 py-3 md:px-12 md:py-4 rounded-full border border-white/5 transition-all z-10 flex items-center gap-2">
-              <Sparkles className="w-5 h-5" />
-              <span>
-                {!isLoggedIn && activeStep === 3 ? "연락처 입력하기" : paymentOption === "use_pass" ? "해몽 시작하기" : "결제하기"}
-              </span>
+      {/* 회원 전용 다회권 선택 시 비회원 안내 팝업 모달 */}
+      {showMemberOnlyModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="relative bg-[#181824] border border-dream-purple/40 rounded-3xl p-6 md:p-8 max-w-md w-full text-center space-y-6 shadow-[0_0_50px_rgba(139,92,246,0.3)]">
+            <div className="w-16 h-16 rounded-full bg-dream-purple/20 border border-dream-purple/40 flex items-center justify-center mx-auto text-dream-purple-light">
+              <Sparkles className="w-8 h-8 text-dream-pink animate-pulse" />
             </div>
-          </button>
+
+            <div className="space-y-2">
+              <h3 className="text-xl font-bold text-white">회원 전용 할인 상품입니다</h3>
+              <p className="text-sm text-slate-300 leading-relaxed">
+                다회권(5회/10회) 할인 혜택은 **회원 전용 서비스**입니다.<br />
+                3초 간편 소셜 가입 후 즉시 할인가로 이용하실 수 있습니다!
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-3 pt-2">
+              <Button
+                onClick={() => router.push("/auth")}
+                className="w-full bg-gradient-to-r from-dream-purple to-dream-pink text-white font-bold py-6 rounded-xl shadow-lg hover:scale-[1.02] transition-all flex items-center justify-center gap-2 cursor-pointer text-sm"
+              >
+                <UserCheck className="w-4 h-4" />
+                <span>3초 회원가입 / 로그인하고 할인받기</span>
+              </Button>
+
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowMemberOnlyModal(false);
+                  setPaymentOption("single");
+                }}
+                className="w-full border-white/20 text-slate-300 hover:text-white hover:bg-white/5 py-6 rounded-xl cursor-pointer text-sm"
+              >
+                1회권(단판)으로 변경하여 결제
+              </Button>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

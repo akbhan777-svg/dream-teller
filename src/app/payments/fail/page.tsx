@@ -30,10 +30,22 @@ function FailClient() {
         <XCircle className="w-16 h-16 text-red-500 mx-auto mb-6" />
         <h2 className="text-2xl font-bold text-white mb-2">결제에 실패했습니다</h2>
         
-        <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 mb-8">
-          <p className="text-red-400 font-medium">{message}</p>
-          <p className="text-red-500/60 text-sm mt-2">Error Code: {code}</p>
-        </div>
+        {message.includes("테스트 환경") || code === "INVALID_TEST_PAYMENT_METHOD" ? (
+          <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-5 mb-8 text-left space-y-2">
+            <p className="text-amber-300 font-bold text-sm">💡 토스페이먼츠 테스트 환경 안내</p>
+            <p className="text-slate-300 text-xs leading-relaxed">
+              페이코(PAYCO) 등 일부 간편결제는 토스페이먼츠 연동 테스트(개발자) 환경에서 지원되지 않는 결제수단입니다.
+            </p>
+            <p className="text-dream-purple-light text-xs font-semibold pt-1">
+              👉 [신용/체크카드], [토스페이], [카카오페이]를 선택하시면 즉시 테스트 결제가 완료됩니다.
+            </p>
+          </div>
+        ) : (
+          <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 mb-8">
+            <p className="text-red-400 font-medium">{message}</p>
+            <p className="text-red-500/60 text-sm mt-2">Error Code: {code}</p>
+          </div>
+        )}
 
         <div className="space-y-3">
           <Button 

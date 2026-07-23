@@ -6,10 +6,9 @@ import re
 FONT_PATH = "C:\\Windows\\Fonts\\malgun.ttf"
 
 def parse_transcript():
-    transcript_path = r"C:\Users\user\.gemini\antigravity-ide\brain\c0751641-8315-4070-8dc5-47daec0fdde9\.system_generated\logs\transcript_full.jsonl"
+    transcript_path = r"C:\Users\user\.gemini\antigravity-ide\brain\4315ab1d-5e8d-40bc-a4da-502b2128c005\.system_generated\logs\transcript_full.jsonl"
     if not os.path.exists(transcript_path):
-        # 만약 full이 없으면 일반 transcript 로드
-        transcript_path = r"C:\Users\user\.gemini\antigravity-ide\brain\c0751641-8315-4070-8dc5-47daec0fdde9\.system_generated\logs\transcript.jsonl"
+        transcript_path = r"C:\Users\user\.gemini\antigravity-ide\brain\4315ab1d-5e8d-40bc-a4da-502b2128c005\.system_generated\logs\transcript.jsonl"
         if not os.path.exists(transcript_path):
             print("대화 기록 로그 파일을 찾을 수 없습니다.")
             return []

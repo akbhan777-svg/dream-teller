@@ -102,8 +102,19 @@ export default function PaymentWidget({ amount, orderId, orderName, customerKey,
         customerName: "김토스",
         customerMobilePhone: "01012341234",
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("결제 요청 실패:", error);
+      if (error?.code === "USER_CANCEL" || error?.message?.includes("취소")) {
+        return;
+      }
+      
+      const errorMsg = error?.message || "결제 요청 중 오류가 발생했습니다.";
+      if (errorMsg.includes("테스트 환경") || error?.code === "INVALID_TEST_PAYMENT_METHOD") {
+        alert("💡 페이코(PAYCO) 등 일부 결제 수단은 토스페이먼츠 테스트(Sandbox) 환경에서 지원되지 않는 결제수단입니다.\n\n[신용/체크카드], [토스페이], [카카오페이] 등으로 선택 후 테스트 결제를 진행해 주세요.");
+      } else {
+        alert(`결제 요청 실패: ${errorMsg}`);
+      }
+
       if (onFail) onFail();
     }
   };

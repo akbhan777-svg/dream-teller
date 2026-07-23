@@ -69,22 +69,29 @@ const AuthClientPage = () => {
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1/2 h-[50px] bg-dream-pink/10 blur-xl rounded-full" />
 
           {/* Logo & Subtitle */}
-          <div className="mb-10 relative">
+          <div className="mb-8 relative">
             <div className="inline-flex p-3 bg-white/5 rounded-2xl border border-white/10 mb-4 shadow-[0_0_20px_rgba(139,92,246,0.25)] relative group overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-r from-dream-purple to-dream-pink opacity-0 group-hover:opacity-20 transition-opacity duration-500" />
               <Sparkles className="w-6 h-6 text-dream-pink animate-pulse" />
             </div>
-            <h1 className="text-2xl md:text-3xl font-extrabold text-white tracking-tight mb-2.5">
+            <h1 className="text-2xl md:text-3xl font-extrabold text-white tracking-tight mb-2">
               Dream Teller
             </h1>
-            <p className="text-slate-400 text-sm leading-relaxed max-w-[280px] mx-auto">
-              어젯밤 당신의 무의식이 보낸 메시지, <br />
-              소셜 로그인으로 빠르게 분석을 시작하세요.
+            <p className="text-slate-300 text-sm leading-relaxed max-w-[300px] mx-auto font-medium">
+              로그인 및 3초 간편 회원가입
             </p>
+
+            {/* 3초 회원가입 직관적 안내 뱃지 */}
+            <div className="mt-4 p-3.5 rounded-xl bg-dream-purple/15 border border-dream-purple/30 text-xs text-slate-200 leading-relaxed shadow-inner">
+              <p className="font-bold text-dream-purple-light mb-0.5">✨ 별도 양식 작성 없는 3초 회원가입</p>
+              <p className="text-slate-400 text-[11px]">
+                구글·카카오 버튼 클릭 한 번으로 가입과 로그인이 동시에 완료됩니다.
+              </p>
+            </div>
           </div>
 
           {/* Social Login Buttons */}
-          <div className="space-y-4">
+          <div className="space-y-3.5">
             
             {/* 1. Google 공식 로그인 버튼 */}
             <button
@@ -102,7 +109,7 @@ const AuthClientPage = () => {
                   <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.85c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
                 </svg>
               )}
-              <span className="text-sm tracking-wide">Google 계정으로 로그인</span>
+              <span className="text-sm tracking-wide">Google 3초 간편가입 / 로그인</span>
             </button>
 
             {/* 2. Kakao 공식 로그인 버튼 */}
@@ -118,7 +125,7 @@ const AuthClientPage = () => {
                   <path fillRule="evenodd" clipRule="evenodd" d="M12 3c-4.97 0-9 3.184-9 7.11 0 2.52 1.657 4.739 4.162 5.926l-.837 3.092c-.1.365.114.717.478.788.115.023.232.012.338-.032l3.616-2.39c.408.082.827.126 1.243.126 4.97 0 9-3.183 9-7.11C21 6.184 16.97 3 12 3z" fill="#191919"/>
                 </svg>
               )}
-              <span className="text-sm tracking-wide">카카오 로그인</span>
+              <span className="text-sm tracking-wide">카카오 3초 간편가입 / 로그인</span>
             </button>
 
           </div>

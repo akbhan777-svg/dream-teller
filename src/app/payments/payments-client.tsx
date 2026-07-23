@@ -49,6 +49,8 @@ export default function PaymentsClient() {
     isFetchedRef.current = true;
 
     const dreamContent = sessionStorage.getItem("dreamContent") || "";
+    const guestPhone = sessionStorage.getItem("guestPhone") || "";
+    const guestPassword = sessionStorage.getItem("guestPassword") || "";
     
     const createPendingOrder = async () => {
       try {
@@ -60,13 +62,18 @@ export default function PaymentsClient() {
             plan: planParam || "single",
             expertField: expertParam || "freud",
             includesImage: includesImageParam,
-            dreamContent
+            dreamContent,
+            guestPhone,
+            guestPassword
           })
         });
         
         const data = await res.json();
         if (data.success) {
           setOrderId(data.orderId);
+          if (typeof window !== "undefined") {
+            sessionStorage.setItem("activeOrderId", data.orderId);
+          }
           setCustomerKey(data.customerKey || "ANONYMOUS"); 
         } else {
           console.error("Order creation failed:", data.error);
@@ -98,6 +105,7 @@ export default function PaymentsClient() {
       });
       const data = await res.json();
       if (data.success && data.orderId) {
+        sessionStorage.removeItem("dreamContent");
         // 즉시 차감 및 결제 승인되었으므로 해몽 대기 페이지로 이동
         window.location.href = `/dream-result/${data.orderId}`;
       } else {

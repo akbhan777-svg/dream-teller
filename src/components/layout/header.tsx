@@ -63,9 +63,9 @@ const Header = () => {
           {/* 홈 로고 */}
           <Link
             href="/"
-            className="text-xl font-bold tracking-tight text-dream-purple transition-colors hover:text-dream-purple-light"
+            className="text-xl font-black tracking-tight welcome-light-logo drop-shadow-[0_0_15px_rgba(147,51,234,0.4)] transition-transform hover:scale-105 cursor-pointer"
           >
-            Dream Teller
+            DREAM TELLER
           </Link>
 
           {/* 데스크톱 네비게이션 (md 이상) */}
@@ -87,7 +87,7 @@ const Header = () => {
                   href="/auth"
                   className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
                 >
-                  로그인
+                  로그인 / 회원가입
                 </Link>
                 <Link
                   href="/guest-check"

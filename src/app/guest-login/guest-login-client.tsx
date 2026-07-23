@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Sparkles, Eye, EyeOff, Loader2, Phone, Lock, ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,17 @@ export default function GuestLoginClient() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // 페이지 진입 시 이전 비회원 조회 세션을 깨끗이 초기화
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem("guestLoginPhone");
+      sessionStorage.removeItem("guestLoginPassword");
+      sessionStorage.removeItem("guestPhone");
+      sessionStorage.removeItem("guestPassword");
+      sessionStorage.removeItem("activeOrderId");
+    }
+  }, []);
 
   // 휴대폰 번호 입력 시 자동으로 하이픈(-) 추가해 주는 포맷터
   const formatPhoneNumber = (value: string) => {
@@ -109,16 +120,26 @@ export default function GuestLoginClient() {
 
           {/* 2. 비밀번호 입력 */}
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-slate-300 px-1">비밀번호 (4자리 이상)</label>
+            <label className="text-xs font-semibold text-slate-300 px-1">조회용 보안 PIN (숫자 4자리)</label>
             <div className="relative">
               <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
               <input
-                type={showPassword ? "text" : "password"}
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={4}
+                name="guest-pin"
+                autoComplete="off"
+                data-lpignore="true"
                 value={password}
-                onChange={handlePasswordChange}
-                placeholder="••••••"
+                onChange={(e) => {
+                  setPassword(e.target.value.replace(/\D/g, ""));
+                  setError("");
+                }}
+                placeholder="예: 8942 (숫자 4자리)"
                 disabled={isLoading}
-                className="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-11 pr-12 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-dream-purple-light focus:bg-white/10 transition-all"
+                style={{ WebkitTextSecurity: showPassword ? "none" : "disc" }}
+                className="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-11 pr-12 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-dream-purple-light focus:bg-white/10 transition-all font-mono tracking-widest"
               />
               <button
                 type="button"

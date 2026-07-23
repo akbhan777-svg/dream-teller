@@ -228,6 +228,36 @@
   .animate-float {
     animation: float 6s ease-in-out infinite;
   }
+
+  /* 자동차 웰컴 헤드라이트 럭셔리 스위핑 조명 효과 */
+  .welcome-light-logo {
+    background: linear-gradient(
+      110deg,
+      #9333ea 0%,
+      #a855f7 20%,
+      #3b82f6 40%,
+      #60a5fa 50%,
+      #f472b6 60%,
+      #ec4899 80%,
+      #9333ea 100%
+    );
+    background-size: 200% 100%;
+    -webkit-background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    background-clip: text !important;
+    color: transparent !important;
+    display: inline-block !important;
+    animation: headlightSweep 3.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  }
+}
+
+@keyframes headlightSweep {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
 }
 
 @keyframes fadeInUp {

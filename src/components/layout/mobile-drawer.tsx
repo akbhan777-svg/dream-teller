@@ -68,7 +68,7 @@ const MobileDrawer = ({ isOpen, onClose }: MobileDrawerProps) => {
     : isLoggedIn
     ? [{ href: "/my-page", label: "마이페이지" }]
     : [
-        { href: "/auth", label: "로그인" },
+        { href: "/auth", label: "로그인 / 회원가입" },
         { href: "/guest-check", label: "비회원 주문 조회" },
       ];
 
@@ -98,10 +98,10 @@ const MobileDrawer = ({ isOpen, onClose }: MobileDrawerProps) => {
             <Link
               href="/"
               onClick={onClose}
-              className="text-lg font-bold text-dream-purple"
+              className="text-lg font-black tracking-tight welcome-light-logo drop-shadow-[0_0_12px_rgba(147,51,234,0.4)]"
               tabIndex={isOpen ? 0 : -1}
             >
-              Dream Teller
+              DREAM TELLER
             </Link>
             <button
               onClick={onClose}

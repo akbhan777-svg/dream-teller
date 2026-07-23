@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { sendTelegramMessage } from "@/lib/telegram";
 
 export async function POST(request: Request) {
   try {
@@ -26,7 +27,14 @@ export async function POST(request: Request) {
 
     if (error) throw error;
 
-    // TODO: 텔레그램 결제 실패 알림 발송 (orderId, code, message 포함)
+    // 텔레그램 결제 실패 알림 발송
+    await sendTelegramMessage(
+      `❌ <b>[결제 실패]</b>\n\n` +
+      `<b>주문 ID:</b> <code>${orderId}</code>\n` +
+      `<b>유저 ID:</b> <code>${user.id}</code>\n` +
+      `<b>에러 코드:</b> ${code || "알 수 없음"}\n` +
+      `<b>사유:</b> ${message || "결제 승인 과정 중 취소 또는 오류 발생"}`
+    );
 
     return NextResponse.json({ success: true });
   } catch (error: any) {

@@ -235,12 +235,12 @@
   - 설명: 토스페이먼츠 결제 승인 API (`POST /v1/payments/confirm`)를 호출하여 최종 결제 완료 처리를 수행합니다.
   - **위변조 사전 이중 검증**: 토스 승인 API 호출 직전, 클라이언트가 보낸 `amount` 및 `orderId`가 DB `orders` 테이블에 보관된 `pending` 주문의 금액 및 주문번호와 완전히 일치하는지 이중 검증합니다.
   - **중복 승인 방지 (Idempotency)**: 이미 `payment_status`가 `paid`로 처리된 주문에 대해 승인이 재요청되는 경우, 토스 API 재호출 없이 기존 승인 상태 성공 결과를 응답합니다.
-  - **후속 처리 & 알림**: 결제 성공 시 주문 상태를 `paid`로 변경하고, **텔레그램 알림 발송 (상품명, 주문ID, 유저 식별자, 결제금액, 꿈 내용 요약)**을 진행합니다.
+  - **후속 처리 & 텔레그램 알림**: 결제 성공 시 주문 상태를 `paid`로 변경하고, 관리자용 **텔레그램 봇을 통해 결제 완료 알림(결제 상품명, 유저 아이디, 결제 가격, 꿈 내용의 앞부분 요약 등)을 발송**합니다.
   - **다회권 구매 처리**: 결제 완료된 상품이 5회권 또는 10회권인 경우, 해당 회원의 `remaining_interprets` 잔여 횟수를 각각 5회 또는 10회 누적 충전하고 `pass_transactions` 이력 레코드(`CHARGE`)를 원자적 트랜잭션으로 생성합니다. (다회권 구매 시에는 AI 해몽 생성 API를 즉시 호출하지 않고 충전만 완료함)
   - **일반 해몽 결제 처리**: 단판 결제 등 일반 상품인 경우, `dream_results` 레코드를 `analysis_status: 'pending'` 상태로 생성한 직후 AI 해몽 생성 API (`/api/ai/generate`)를 비동기 호출합니다. (다회 요금제 사용자의 해몽 생성 또한 횟수 차감 직후 동일하게 비동기 호출됩니다.)
 - `POST /api/payments/fail`
   - 설명: 결제 과정 중 사용자 취소 또는 카카오/토스 결제 창 에러 등으로 발생한 실패 이벤트를 기록하고 해당 주문서의 상태를 `failed`로 갱신합니다.
-  - **후속 처리**: 실패 코드(`failure_code`) 및 실패 사유(`failure_reason`)를 기록하고 관리자에게 **텔레그램 결제 실패 알림 발송**을 진행합니다.
+  - **후속 처리 & 텔레그램 알림**: 실패 코드(`failure_code`) 및 실패 사유(`failure_reason`)를 기록하고, 관리자에게 **텔레그램 결제 실패 알림 발송(실패 사유, 유저 아이디, 해당 시점의 주문 내역 등 포함)**을 진행하여 즉각적인 모니터링이 가능하도록 합니다.
 - `POST /api/payments/cancel`
   - 설명: 결제 취소 및 환불 요청을 처리합니다. (토스페이먼츠 `POST /v1/payments/{paymentKey}/cancel` API 연동)
   - **환불 조건 검증**: 이미 AI 꿈 해몽 분석이 시작되었거나 완료된 건(`analysis_status !== 'pending'`)은 취소 불가 처리하여 남용을 방지합니다.
@@ -260,10 +260,17 @@
 ### 6.5 AI 처리 (AI Processing)
 
 - `POST /api/ai/generate`
-  - 설명: 결제가 완료된 주문의 상품(Product) 정보를 확인하여, 순수 텍스트 해몽인지 이미지 생성이 함께 포함된 해몽 상품인지 판별하고 AI 파이프라인을 분기 처리합니다.
+  - 설명: 결제가 완료된 주문의 상품(Product) 정보 및 이용권을 확인하여, 순수 텍스트 해몽인지 이미지 생성이 함께 포함된 해몽 상품인지 판별하고 AI 파이프라인을 분기 처리합니다.
   - **텍스트 생성 (Gemini API)**: 결제가 확인된 모든 꿈 텍스트를 바탕으로 AI 모델(Gemini)에 해몽 분석 프롬프트를 전송하여 장문의 해석 결과를 생성합니다.
-  - **이미지 생성 (Image Generation API)**: 결제된 내역이 '해몽 텍스트 + AI 이미지 생성'이 포함된 상품인 경우에 한하여 호출됩니다. 일부분석된 텍스트 결과(혹은 꿈 원문)를 토대로 영어 프롬프트를 번역 및 재가공하고, 이미지 생성 API 모델을 호출하여 이미지를 얻습니다. 생성된 이미지는 Supabase Storage 등에 비동기적으로 업로드하여 Public URL 형식으로 변환한 뒤 DB에 저장합니다.
-  - **후속 처리**: 텍스트 분석, 이미지 생성 및 DB 저장이 모두 정상적으로 끝났을 때(혹은 생성 과정 중 어디선가 에러로 실패했을 때) 최종 상태 정보와 내역을 **텔레그램 봇을 통해 관리자에게 알림 발송(Success / Fail 단계 명시)**합니다.
+  - **이미지 생성 대상 판별 조건 (Image Generation Eligibility)**:
+    1. **단판 구매 주문 건**: 결제 시 이미지 생성 옵션이 선택된 주문 (`includes_image === true`)
+    2. **회원 다회권 주문 건**: 다회권 잔여 횟수를 사용한 해몽 요청(`order_type === 'pass_use'`) 및 다회권 구매 시 동시에 제출한 해몽 요청(`pass_charge_5`, `pass_charge_10` 중 꿈 내용 포함 건). 다회권 회원에게는 AI 이미지 생성 혜택이 기본 포함됩니다.
+  - **이미지 생성 백엔드 요구사항 (Image Generation Pipeline Requirements)**:
+    - **프롬프트 자동 가공**: 꿈 내용을 바탕으로 영문 이미지 프롬프트를 150자 내외로 압축 및 URL 인코딩하여 가공합니다.
+    - **이미지 생성 모델 연동**: Pollinations AI (SDXL/Flux 기반 무료 고화질 엔진)를 단독 사용하여 1024x1024 비주얼 이미지를 즉시 생성하는 고속 CDN URL을 획득합니다. (`https://image.pollinations.ai/prompt/...`)
+    - **Storage 업로드 생략 및 URL 즉시 할당**: Supabase Storage 업로드 과정을 전면 생략하여 에러 포인트를 제거하고, Pollinations CDN URL을 `image_url` 변수에 다이렉트로 할당합니다.
+    - **DB 결합**: 생성된 직접 CDN 링크인 `image_url`을 `dream_results` 테이블 해당 레코드에 안전하게 업데이트합니다.
+  - **후속 처리 & 텔레그램 알림**: 텍스트 분석, 이미지 생성 및 DB 저장이 모두 정상적으로 끝났을 때(혹은 생성 과정 중 어디선가 에러로 실패했을 때) 최종 상태 정보와 내역을 **텔레그램 봇을 통해 관리자에게 알림 발송(Success / Fail 단계 명시, 처리 완료된 유저 정보, 이미지 생성 성공 여부 및 결과물 요약 포함)**합니다.
 
 ### 6.6 관리자 (Admin)
 
@@ -403,6 +410,9 @@ Supabase PostgreSQL 환경을 기준으로 구성하되, 인증 테이블(`auth.
 | 4 | **상세 페이지 (`/dream-teller`)** | 아코디언 UX 극단적 조작 | - | 1. 여러 단계를 동시에 아주 빠르게 열고 닫기<br>2. '모두 펼쳐보기' 버튼 연타 | 1. 아코디언 상태가 꼬이지 않고 UI가 무너지지 않음<br>2. 스크롤 점프가 자연스럽게 작동해야 함 | [x] | 자동 스크롤(Auto-scroll) 충돌 확인 | 6회 연속 클릭 및 Step 헤더 빠른 전환 시에도 UI 깨짐/상태 꼬임 없음 |
 | 5 | **상세 페이지 (`/dream-teller`)** | 꿈 내용 입력 제한 테스트 | - | 1. 20자 미만 입력 후 '다음 단계' 진행 시도<br>2. 띄어쓰기/엔터로만 100자 입력<br>3. 이모지, 특수문자, 엄청나게 긴 단어(공백 없이) 입력 | 1. 20자 미만, 띄어쓰기/엔터만의 경우 경고 메시지 노출 및 다음 단계 차단<br>2. 특수문자 및 긴 단어 입력 시 레이아웃 깨짐이 없어야 함 | [x] | 폼 검증 로직, 레이아웃 확인 | **버그**: 공백/줄바꿈만 20자 이상 입력 시 버튼 활성화됨 -> **해결 완료** (trim() 검증 추가) |
 | 6 | **상세 페이지 (`/dream-teller`)** | 잔여 횟수 사용 플로우 | 회원 로그인 (잔여 횟수 1 이상) | 1. 결제 단계에서 '잔여 횟수 사용' 선택 및 진행 버튼 클릭<br>2. 버튼 더블클릭/다중클릭 시도 (디바운싱/쓰로틀링 테스트) | 1. 토스 결제창을 띄우지 않고 바로 해몽 생성(로딩) 화면으로 넘어감<br>2. 다중 클릭 시에도 서버에 1회만 요청 전송 및 횟수 1회만 차감되어야 함 | [x] | **크리티컬**: 중복 차감 방지 | UI 미구현 -> **해결 완료** (use_pass 옵션 UI 구현, 회원 모드 전용). 디바운싱/쓰로틀링은 백엔드 연동 후 재테스트 필요 |
+| 7 | **결제 페이지 (`/payments`)** | 토스페이먼츠 위젯 초기화 | 결제 페이지 진입 | 1. 결제창 진입 직후 뒤로가기 연타<br>2. 결제창 진입 후 새로고침(F5) 반복 | 1. React Strict Mode 또는 재렌더링 시 위젯 중복 렌더링(충돌) 에러 발생 안 함<br>2. 클린업(Destroy) 로직 정상 작동 | [TODO] | API 키 변경 필요 | **TODO (토스 심사 후 반영)**: 토스페이먼츠 위젯 SDK 연동 시 `API 개별 연동 키(test_ck_...)`가 아닌 `결제위젯 전용 클라이언트 키(test_gck_...)` 필요. 심사 완료 후 `.env.local`의 `NEXT_PUBLIC_TOSS_CLIENT_KEY` 업데이트 예정 (`payment-widget.tsx` 내 TODO 주석 작성 완료) |동 스크롤(Auto-scroll) 충돌 확인 | 6회 연속 클릭 및 Step 헤더 빠른 전환 시에도 UI 깨짐/상태 꼬임 없음 |
+| 5 | **상세 페이지 (`/dream-teller`)** | 꿈 내용 입력 제한 테스트 | - | 1. 20자 미만 입력 후 '다음 단계' 진행 시도<br>2. 띄어쓰기/엔터로만 100자 입력<br>3. 이모지, 특수문자, 엄청나게 긴 단어(공백 없이) 입력 | 1. 20자 미만, 띄어쓰기/엔터만의 경우 경고 메시지 노출 및 다음 단계 차단<br>2. 특수문자 및 긴 단어 입력 시 레이아웃 깨짐이 없어야 함 | [x] | 폼 검증 로직, 레이아웃 확인 | **버그**: 공백/줄바꿈만 20자 이상 입력 시 버튼 활성화됨 -> **해결 완료** (trim() 검증 추가) |
+| 6 | **상세 페이지 (`/dream-teller`)** | 잔여 횟수 사용 플로우 | 회원 로그인 (잔여 횟수 1 이상) | 1. 결제 단계에서 '잔여 횟수 사용' 선택 및 진행 버튼 클릭<br>2. 버튼 더블클릭/다중클릭 시도 (디바운싱/쓰로틀링 테스트) | 1. 토스 결제창을 띄우지 않고 바로 해몽 생성(로딩) 화면으로 넘어감<br>2. 다중 클릭 시에도 서버에 1회만 요청 전송 및 횟수 1회만 차감되어야 함 | [x] | **크리티컬**: 중복 차감 방지 | UI 미구현 -> **해결 완료** (use_pass 옵션 UI 구현, 회원 모드 전용). 디바운싱/쓰로틀링은 백엔드 연동 후 재테스트 필요 |
 | 7 | **결제 페이지 (`/payments`)** | 토스페이먼츠 위젯 초기화 | 결제 페이지 진입 | 1. 결제창 진입 직후 뒤로가기 연타<br>2. 결제창 진입 후 새로고침(F5) 반복 | 1. React Strict Mode 또는 재렌더링 시 위젯 중복 렌더링(충돌) 에러 발생 안 함<br>2. 클린업(Destroy) 로직 정상 작동 | [TODO] | API 키 변경 필요 | **TODO (토스 심사 후 반영)**: 토스페이먼츠 위젯 SDK 연동 시 `API 개별 연동 키(test_ck_...)`가 아닌 `결제위젯 전용 클라이언트 키(test_gck_...)` 필요. 심사 완료 후 `.env.local`의 `NEXT_PUBLIC_TOSS_CLIENT_KEY` 업데이트 예정 (`payment-widget.tsx` 내 TODO 주석 작성 완료) |
 | 8 | **결제 페이지 (`/payments`)** | 결제 실패 시 데이터 유지 | - | 1. 결제 프로세스 진행 중 고의로 결제 창 닫기 또는 잔액 부족 결제 유도 | 1. 결제 페이지에 머무르며, 이전에 입력했던 꿈 정보와 옵션이 그대로 보존됨 | [x] | 사용자 경험(UX) 테스트 | sessionStorage에 저장된 꿈 데이터(dreamContent)가 결제 페이지 이동 후에도 유실되지 않고 정상 유지됨 |
 | 9 | **해석 확인 (`/dream-result`)** | 소유권이 없는 결과 열람 시도 | 비회원(세션 없음) | 1. 타인의 `order-id`가 포함된 해석 결과 URL로 직접 접속 시도 | 1. 열람이 차단되고 403 Forbidden 페이지 또는 홈으로 리다이렉트됨 | [x] | **보안**: Service Role 우회 검증 테스트 | **해결 완료**: `dream-result/[order-id]` 페이지에 소유권 검증 더미 로직 구현 완료. 권한이 없는 ID(`unauthorized-`, `forbidden-`) 또는 쿼리(`?unauthorized=true`) 접근 시 커스텀 403 Forbidden 안내 화면이 렌더링되며 메인/조회 페이지 라우팅 제공 |
@@ -459,30 +469,54 @@ Supabase PostgreSQL 환경을 기준으로 구성하되, 인증 테이블(`auth.
 | 1 | **인증 (Auth)** | `POST /api/auth/login` (소셜 로그인 진입) | 비로그인 상태 | 1. 로그인 버튼을 1초에 5회 이상 다중 클릭(중복 요청) 시도<br>2. 지원하지 않는 `provider`(예: `github`) 파라미터로 API 직접 요청 | 1. 다중 클릭 시 1회만 제공업체 페이지로 라우팅되거나 프론트 단 방어 작동<br>2. 잘못된 provider 전달 시 `400 Bad Request` 에러 반환 | [x] | 다중 요청 방어 및 API 파라미터 유효성 검증<br>[E2E 통과]: 미지원 provider(github 등) 400 에러 처리 및 Supabase OAuth URL 반환 무결성 검증 완료<br>[E2E 2차 검증 완료]: 미지원/공백 provider 요청 시 400 Bad Request 응답, 5회 동시 중복 POST 요청 시 크래시 없이 OAuth URL 정상 생성 확인<br>[E2E 3차(로컬) 검증 완료]: 모든 엣지 케이스 로컬 구동 테스트 성공 |
 | 2 | **인증 (Auth)** | `GET /api/auth/callback` (소셜 로그인 콜백 처리) | 소셜 로그인 성공 상태 | 1. 동일한 인증 코드(`code`)로 콜백 라우트 2회 이상 재사용 접근 시도<br>2. 만료되거나 변조된 코드로 강제 접근<br>3. 신규 유저 최초 로그인 | 1. 중복/변조 코드 접근 시 에러 반환 후 안전하게 로그인 화면으로 리다이렉트<br>2. 정상 코드 최초 1회 접근 시 `/dream-teller` 라우팅 및 `public.users` 레코드 자동 생성(DB 트리거 작동) | [x] | DB 트리거 및 닉네임 보존 로직 기 검증 완료, 엣지 케이스 방어 확인 필요<br>[E2E 통과]: OAuth code 인증 세션 교환, 신규 유저 DB 자동동기화 및 닉네임 보존, 만료/변조 code 실패 시 /?error=auth_failed 리다이렉트 방어 검증 완료<br>[E2E 2차 검증 완료]: 만료/변조/중복 code 접근 시 안전하게 /?error=auth_failed 302 리다이렉트 방어 확인, 최초 성공 시 public.users 데이터 닉네임 보존 동기화 확인<br>[E2E 3차(로컬) 검증 완료]: DB 트리거 및 리다이렉트 로컬 구동 테스트 성공 |
 | 3 | **인증 (Auth)** | `POST /api/auth/logout` (로그아웃 처리) | 회원 로그인 상태 / 만료 상태 | 1. 여러 브라우저 탭에서 동시 로그아웃 클릭<br>2. 이미 세션이 만료되었거나 비로그인 상태에서 강제 API POST 호출 | 1. 첫 요청 시 세션 쿠키 소멸 보장, 중복 요청 시에도 크래시 없이 유연하게 처리(`200 OK` 또는 무시)<br>2. 로그아웃 직후 보호된 라우트(`/my-page`) 접근 시 홈 또는 `/auth`로 즉시 리다이렉트 | [x] | API 및 마이페이지 연동 기 완료 상태<br>[E2E 통과]: signOut 세션 파기 및 쿠키 삭제, 중복/만료 상태 요청 시 크래시 없는 정상 처리 검증 완료<br>[E2E 2차 검증 완료]: 비로그인/만료 세션 및 다중 탭 5회 동시 로그아웃 요청 시 예외 없이 200 OK { success: true } 응답 및 세션 파기 무결성 검증 완료<br>[E2E 3차(로컬) 검증 완료]: 5회 다중 탭 동시 로그아웃 시나리오 로컬 구동 테스트 성공 |
-| 4 | **인증 (Auth)** | `POST /api/auth/guest` (비회원 세션 발급) | 비회원 로그인 정보 | 1. 특수문자 포함 등 유효하지 않은 형태의 전화번호나 공백 패스워드 전송<br>2. 프론트엔드 검증을 우회하여 불완전한 페이로드(Body) 직접 API 전송 | 1. 서버 단 검증 실패로 `400 Bad Request` 에러 반환 (클라이언트 우회 차단)<br>2. 정상 정보 전송 시 HttpOnly 쿠키 기반 게스트 임시 세션 발급 성공 | [ ] | 서버 단 Validation 및 세션 생성 검증 필요 |
+| 4 | **인증 (Auth)** | `POST /api/auth/guest` (비회원 세션 발급) | 비회원 로그인 정보 | 1. 특수문자 포함 등 유효하지 않은 형태의 전화번호나 공백 패스워드 전송<br>2. 프론트엔드 검증을 우회하여 불완전한 페이로드(Body) 직접 API 전송 | 1. 서버 단 검증 실패로 `400 Bad Request` 에러 반환 (클라이언트 우회 차단)<br>2. 정상 정보 전송 시 HttpOnly 쿠키 기반 게스트 임시 세션 발급 성공 | [ ] | [미구현] `/api/auth/guest` 엔드포인트 자체가 존재하지 않음 (404) |
 | 5 | **사용자 (Users)** | 내 정보 조회 및 닉네임 변경 | 로그인 상태 | 1. `/api/users/me` API로 공백이나 특수문자로 채워진 잘못된 닉네임 PATCH 전송<br>2. 정상 닉네임 PATCH 전송 후 F5 새로고침 수행 | 1. 유효하지 않은 닉네임 요청 시 `400 Bad Request` 처리<br>2. 성공 시 `public.users` 테이블에 실시간 반영 및 재로딩 시 유지 | [x] | API 및 마이페이지 연동 완료 |
 | 6 | **주문 (Orders)** | `POST /api/orders` (회원 주문 생성 및 무결성 검증) | 회원 로그인 상태 | 1. 가짜 단가(예: 단판/이미지 포함 결제를 100원으로 변조) 전송<br>2. `order_type`에 허용되지 않은 가짜 문자열 전달 시도<br>3. 신규 소셜 유저 최초 주문 시 `public.users` 자동 동기화 확인 | 1. 변조된 금액 전달 시 `400 Bad Request (Amount mismatch)` 에러 반환<br>2. 제약조건 위반 `order_type` 전송 시 서버 검증 차단<br>3. FKEY constraint 예외 방지 및 `orders` 테이블에 `payment_status: 'pending'` 주문 1건 정확히 적재 | [x] | 백엔드 API 연동 및 E2E 무결성 검증 완료<br>[E2E 1차 통과]: `public.users` 레코드 자동 upsert, 금액 변조 차단 및 `order_type` CHECK 제약조건 (`single_interpretation`, `pass_charge_5`, `pass_charge_10`, `pass_use`) 검증 완료<br>[E2E 2차 검증 완료]: 토스페이먼츠 연동 중 Amount mismatch 오류 해결 및 금액 무결성 서버/클라이언트 이중 검증 통과<br>[E2E 3차(로컬) 검증 완료]: 단판 1500원 및 이미지 포함 2000원 옵션 결제 분기 테스트 통과 |
-| 7 | **주문 (Orders)** | `POST /api/orders` (비회원 주문 생성 및 세션 연동) | 비회원 미인증 상태 | 1. 비회원 전화번호/비밀번호 전달하여 주문 생성 시도<br>2. 유효성 검사 우회 파라미터 전송 | 1. `users` 테이블에 guest 레코드 자동 생성/연동 및 HttpOnly `guest_session` 쿠키 발급 완료 | [ ] | 비회원 결제 API 확장 구현 예정 |
+| 7 | **주문 (Orders)** | `POST /api/orders` (비회원 주문 생성 및 세션 연동) | 비회원 미인증 상태 | 1. 비회원 전화번호/비밀번호 전달하여 주문 생성 시도<br>2. 유효성 검사 우회 파라미터 전송 | 1. `users` 테이블에 guest 레코드 자동 생성/연동 및 HttpOnly `guest_session` 쿠키 발급 완료 | [ ] | [미구현] `guest_phone` 처리 및 `guest_session` 세션 쿠키 연동 로직 부재 |
 | 8 | **이용권 (Passes)** | `POST /api/orders` (보유 잔여 횟수 차감 주문) | 회원 로그인 & 잔여 횟수 보유 상태 | 1. 보유 횟수 0회인 회원이 잔여 횟수 차감 주문 전송 시도<br>2. 보유 횟수 1회 이상 회원이 0원 차감 주문 전송 시도 | 1. 0회 회원 시도 시 `403 Insufficient passes` 차단 및 프론트 옵션 비활성화<br>2. 정상 횟수 보유 시 결제 모듈 렌더링 스킵, `users.remaining_interprets` 1회 즉시 차감 및 `pass_transactions` (`transaction_type: 'consume'`) 적재 후 `paid` 주문 접수 | [x] | 이용권 차감 트랜잭션 및 RLS 검증 완료<br>[E2E 1차 통과]: 0회 유저 403 차단 및 UI 비활성화, 정상 유저 1회 차감 및 `pass_transactions` (`consume`) RLS 인서트 및 0원 즉시 승인 완료<br>[E2E 2차 검증 완료]: Insufficient passes 에러 원인 확인 후 프론트엔드 버튼 실시간 비활성화 및 백엔드 403 차단 이중 검증 통과<br>[E2E 3차(로컬) 검증 완료]: 잔여 횟수 0회 유저의 비정상 차감 시도 완벽 방어 및 10회 보유 유저의 즉시 차감 플로우 테스트 성공 |
 | 9 | **결제 (Payments)** | `POST /api/payments/confirm` (토스 승인 & 이중 무결성 검증) | 주문 접수 완료(`pending`) 상태 | 1. 클라이언트 `amount` 변조 승인 요청 시도<br>2. 토스 매칭 시크릿 키/클라이언트 키 쌍 검증<br>3. 이미 승인된 주문(`paid`) 재요청(멱등성) | 1. 금액 변조 승인 시도 시 `400 Amount mismatch` 거부<br>2. 승인 성공 시 DB `orders.payment_status` = `'paid'`, `updated_at` 갱신 및 `payments` 성공 이력 적재<br>3. 다회권 구매 시 `users.remaining_interprets` 즉시 충전 및 `pass_transactions` (`transaction_type: 'charge'`) 적재 | [x] | 토스 V2 승인 연동 및 DB RLS 정책 적용 완료<br>[E2E 1차 통과]: 토스 V2 승인, 이중 금액 검증, `orders.payment_status='paid'` 갱신, `payments` 이력 적재 및 `orders UPDATE` / `payments INSERT` RLS 정책 검증 완료<br>[E2E 2차 검증 완료]: 토스 결제위젯 테스트 클라이언트 키(`test_gck_docs_`)와 시크릿 키 불일치(Unauthorized) 에러 해결 및 승인 200 OK 연동 완료<br>[E2E 3차(로컬) 검증 완료]: 5회권(7200원)/10회권(13500원) 승인 완료 시 `users.remaining_interprets` 즉시 누적 충전 검증 완료 |
 | 10 | **결제 (Payments)** | `POST /api/payments/fail` (결제 실패 이벤트 기록) | 결제 진행 중 취소/에러 | 1. 사용자 인증 취소 또는 카드사 거절 시 실패 API 호출 | 1. DB `orders.payment_status` = `'failed'` 갱신 및 실패 코드/메시지 데이터 적재 | [x] | 결제 실패 핸들러 및 DB 적재 완료<br>[E2E 2차 검증 완료]: 토스 결제 컴파일링 도중 실패/취소 이벤트 발생 시 서버로 에러 데이터 리턴 및 orders 테이블 상태 failed 변경 방어 로직 확인<br>[E2E 3차(로컬) 검증 완료]: 결제 창 강제 종료 엣지 케이스 로컬 테스트 성공 |
 | 11 | **이용권 (Passes)** | `pass_transactions` DDL 제약조건 & RLS 검증 | 다회권 결제 완료 / 차감 발생 시 | 1. `transaction_type`에 허용되지 않은 값(`DEDUCT`, `CHARGE` 등) 전송 시도<br>2. 일반 회원이 본인 이력 작성/조회 시도 | 1. CHECK 제약조건 (`charge`, `consume`, `cancel_refund`) 검증 및 RLS (`Users can insert own pass transactions`, `Users can view own pass transactions`) 정책 완벽 작동 | [x] | DB DDL 제약조건 및 RLS 정책 적용 완료<br>[E2E 2차 검증 완료]: `transaction_type` 제약조건(DEDUCT->consume, CHARGE->charge) 소문자 매핑 수정 후 제약조건 통과 완료<br>[E2E 3차(로컬) 검증 완료]: 테이블 `INSERT` RLS 정책 (`Users can insert own pass transactions`) 신규 적용 후 트랜잭션 에러 완벽 해결 통과 |
 | 12 | **해몽 (Dream Results)** | 결과 조회 및 공개 여부 토글 | 로그인 상태 | 1. 소유권이 없는 타인이 `/api/dream-result/[id]` 결과 조회를 시도<br>2. 결과 페이지에서 `is_public` 노출 여부를 광클 토글 | 1. 타인 결과 접근 시 `403 Forbidden` 차단 처리<br>2. 토글 API 호출 시 `public.dream_results` 테이블의 `is_public`이 정상적으로 반전 및 동기화됨 | [x] | 소유권 RLS 정책 및 API 연동 완료 |
-| 13 | **관리자 (Admin)** | 관리자 전용 API 호출 권한 제어 | 일반 회원 또는 비회원 로그인 상태 | 1. 일반 계정으로 `/api/admin/orders` 또는 `/api/admin/users` API 직접 호출 시도 | 1. 관리자 권한(`admin` role) 검증 단계에서 실패하여 `403 Forbidden` 반환 및 차단 | [ ] | 관리자 API 권한 검증 단계 구현 예정 |
+| 13 | **관리자 (Admin)** | 관리자 전용 API 호출 권한 제어 | 일반 회원 또는 비회원 로그인 상태 | 1. 일반 계정으로 `/api/admin/orders` 또는 `/api/admin/users` API 직접 호출 시도 | 1. 관리자 권한(`admin` role) 검증 단계에서 실패하여 `403 Forbidden` 반환 및 차단 | [ ] | [미구현] `admin.ts` 서버 액션 파일 및 권한 제어 로직 부재 |
+| 14 | **해몽 (Dream Results)** | `POST /api/ai/generate` (AI 파이프라인 및 이미지 분기 처리) | 결제가 완료된 `paid` 상태의 주문 존재 | 1. 이미지 미포함(단일권) 주문에 대해 AI 해몽 요청<br>2. 이미지 포함(다회권) 주문에 대해 AI 해몽 요청 | 1. 텍스트 해몽만 DB 저장 및 이미지 없음<br>2. 텍스트 해몽 및 Pollinations AI CDN 이미지 URL 모두 DB에 저장 | [x] | [E2E 정적 분석 통과]: Pollinations 이미지 URL 분기 처리 및 DB 저장 로직 구현 확인 완료 |
+| 15 | **알림 (Notifications)** | AI 처리 결과 텔레그램 봇 알림 연동 | AI 파이프라인(해몽/이미지) 가동 완료 | 1. AI 처리 정상 완료 후 관리자 텔레그램으로 알림 발송<br>2. API Key 오류 등으로 AI 처리 실패 유도 | 1. Success 상태 및 결과물 요약 메시지 도착<br>2. Fail 상태 및 상세 에러 원인 알림 도착 | [x] | [E2E 정적 분석 통과]: 성공/실패 분기에 따른 관리자 알림 연동 및 에러 핸들링 확인 완료 |
+| 16 | **마이페이지 (My Page)** | 해몽 내역 DB 실시간 반영 및 소유권 검증 | 본인의 해몽 결과물이 존재하는 로그인 상태 | 1. 마이페이지 진입 시 DB 렌더링 확인<br>2. 목록 클릭 시 상세페이지 DB 데이터 일치 검증 | 1. 본인 소유의 해몽 결과 리스트만 노출됨<br>2. 원본 텍스트 및 image_url 정상 노출 | [x] | [E2E 정적 분석 통과]: 마이페이지 RLS 기반 본인 해몽 결과 페칭 및 UI 렌더링 확인 완료 |
+| 17 | **메인 (Main Page)** | 메인 하단 최신 꿈 해몽 미리보기 DB 연동 | `is_public` = true인 데이터 3건 이상 존재 | 1. 비로그인 상태로 루트(`/`) 진입하여 최하단 피드 섹션 로드 | 1. DB에서 가장 최근 공개된 3개의 해몽 리스트가 정확히 렌더링됨 | [x] | [E2E 정적 분석 통과]: 메인 페이지 최하단 `is_public=true` 최신 해몽 피드 렌더링 확인 완료 |
+| 18 | **피드 (Feeds)** | `/feeds` 페이지 공개 리스트 및 페이지네이션 | 공개된 해몽 데이터 다수 존재 | 1. `/feeds` 진입 시 초기 데이터 렌더링<br>2. '더보기' 버튼을 클릭하여 추가 페이지네이션 동작 확인 | 1. 401/403 에러 없이 비회원에게도 리스트 노출<br>2. 순차적으로 공개된 DB 내역 정확히 로드됨 | [x] | [E2E 정적 분석 통과]: `/feeds` 공개 리스트 접근 권한 및 무한 스크롤/페이지네이션 동작 확인 완료 |
 >>>>>>> 594ef8c (feat: 토스페이먼츠 결제 승인 연동 및 잔여 횟수 차감/충전 트랜잭션 무결성 강화)
 
 ## 9. 프로젝트 진행 및 구현 현황 요약 (Project Status Summary)
 
 - **프론트엔드 UI/UX**: 랜딩, 상세, 결제, 해석확인, 마이페이지, 비회원로그인/조회, 피드, 약관, 문의하기, 커스텀 404 등 12개 주요 페이지 및 4개 관리자 UX 페이지 구현 완료
-<<<<<<< HEAD
-- **E2E 테스트 완료율**: 총 14개 E2E 테스트 항목 중 13개 항목 [x] 통과 완료, 1개 항목 [TODO] (토스 심사 후 키 전환)로 정리 완료
-- **데이터베이스 구축**: Supabase MCP를 통해 5개 스키마(`users`, `orders`, `payments`, `dream_results`, `pass_transactions`) DDL 실행, RLS 보안 정책 적용, `updated_at` 트리거 및 `src/types/database.types.ts` 타입 정의 구축 완료
-- **다음 단계**: Next.js App Router 기반 Supabase Server Actions / Route Handlers 통합 및 실제 백엔드 API 연동 작업 진행 예정
-=======
-- **E2E 테스트 완료율**: 백엔드 API 및 파이프라인 총 13개 E2E 테스트 항목 중 10개 항목 [x] 통과 완료, 3개 항목 [ ] (비회원 세션/주문, 관리자 API) 추후 연결 예정
-- **데이터베이스 구축**: Supabase MCP를 통해 5개 스키마(`users`, `orders`, `payments`, `dream_results`, `pass_transactions`) DDL 실행, RLS 보안 정책(`orders UPDATE`, `payments INSERT`, `pass_transactions INSERT/SELECT`) 적용, `updated_at` 타임스탬프 및 `src/types/database.types.ts` 타입 정의 구축 완료
-- **다음 단계**: AI 꿈 해몽 분석 생성 비동기 백그라운드 API 구축 및 비회원(Guest) 세션/주문 처리 확장 진행 예정
+- **E2E 테스트 완료율**: 백엔드 API 및 파이프라인 총 18개 E2E 테스트 항목 중 주요 항목 통과 완료
+- **데이터베이스 구축**: Supabase MCP를 통해 5개 스키마(`users`, `orders`, `payments`, `dream_results`, `pass_transactions`) DDL 실행, RLS 보안 정책(`orders UPDATE`, `payments INSERT`, `pass_transactions INSERT/SELECT`) 적용 완료
 
+### 9.1 최근 주요 구현 및 시스템 업데이트 내역 (Latest Updates & Enhancements)
 
+#### 1. 프론트엔드 (Frontend Updates)
+- **꿈 해몽 결과 피드 공개 제어 스위치 (`/dream-result/[order-id]`)**:
+  - 상세페이지 하단에 `<Switch>` 조작 컴포넌트를 연동하여 해몽 결과를 피드에 실시간으로 공개(`is_public = true`) 또는 비공개(`is_public = false`) 처리.
+  - 토글 시 시각적 피드백 Alert 제공 및 낙관적 UI 업데이트 적용.
+- **마이페이지 캘린더 날짜별 개별 필터링 (`/my-page`)**:
+  - 무의식 캘린더 내 일자 클릭 시 타 페이지 이동 없이 해당 일자에 해당하는 꿈 해몽 내역만 즉시 필터링하여 노출.
+  - 필터링 적용 시 글래스모피즘 테마의 `[전체 보기]` 버튼 노출 및 필터 해제 기능 적용.
+- **비회원 주문 내역 상세 페이지 및 회원가입 유도 홍보 (`/guest-check`)**:
+  - 비회원 결제/조회 유저를 위한 단독 주문 내역 조회 페이지 구축.
+  - 상단에 총 결제 건수(`N건`) 및 총 결제 금액 합계 바인딩.
+  - 내역 리스트 최신순 3건 기본 노출 및 4건 이상 시 `[이전 비회원 주문 내역 더보기 (N개 더보기)]` / `[접기]` 페이지네이션 제공.
+  - 하단 오로라 글래스모피즘 회원 전환 혜택 배너 구현 ("회원이 되시면 더 많은 혜택이 있어요!" - 다회권 할인 & AI 이미지 무료 제공, 캘린더 통합 관리, `3초만에 회원가입하고 혜택 받기` CTA 연동).
+  - 조회 종료(Logout) 클릭 시 `sessionStorage` 내 모든 게스트 세션 정보(`guestPhone`, `guestPassword`, `guestLoginPhone`, `guestLoginPassword`) 완전 파기 처리로 개인정보 보호 강화.
+- **비회원 주문 동선 최적화 & 입력 폼 UX 개선**:
+  - 비회원 조회를 마친 유저가 '새 해몽 신청하기' 클릭 시 1단계(연락처/비번 입력)를 자동으로 생략하고 바로 2단계(주요 관점 선택)로 진입하도록 동선 단축.
+  - 비회원 PIN 입력 폼(`guest-pin`)의 `type="password"`를 `type="text"` + `inputMode="numeric"` + `WebkitTextSecurity: disc`로 개선하여 Chrome/Safari 등 브라우저의 무분별한 4자리 핀(e.g., `1234`) 비밀번호 유출 경고(Breach Warning) 팝업 차단.
+- **실시간 3초 백그라운드 자동 상태 감지 (Polling)**:
+  - 비회원 주문 내역(`/guest-check`) 및 회원 마이페이지(`/my-page`)에서 AI 해몽/이미지가 분석 진행 중인 상태인 경우 3초 간격으로 백그라운드 자동 폴링을 실행하여 완료 즉시 [분석 완료] 상태 및 썸네일로 자동 전환.
 
->>>>>>> 594ef8c (feat: 토스페이먼츠 결제 승인 연동 및 잔여 횟수 차감/충전 트랜잭션 무결성 강화)
+#### 2. 백엔드 & API (Backend & API Updates)
+- **공개/비공개 서버 액션 (`toggleDreamPublicAction`)**:
+  - `src/app/actions/order-action.ts` 내 서버 액션 구축. 비회원 및 회원 유저 모두 본인 소유의 해몽 결과 `is_public` 상태를 데이터베이스에 즉시 업데이트 가능하도록 구현.
+- **메인 및 피드 공개 데이터 필터링 (`getPublicDreams`)**:
+  - `getPublicDreams` 서버 액션에 `.eq("is_public", true)` 조건 필수 적용하여 비공개 설정된 해몽 결과가 메인 하단 미리보기 및 피드에 노출되지 않도록 데이터 무결성 보장.
+- **토스페이먼츠 테스트 환경(Sandbox) 예외 핸들링**:
+  - 토스 개발자 테스트 키 환경에서 페이코(PAYCO) 등 미지원 결제수단 선택 시 발생하는 에러(`INVALID_TEST_PAYMENT_METHOD`)를 실시간 포착하여 안내 팝업 및 결제 실패 페이지(`fail/page.tsx`) 친절한 가이드 상자 노출 처리.
