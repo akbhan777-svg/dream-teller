@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Menu } from "lucide-react";
 import MobileDrawer from "@/components/layout/mobile-drawer";
 import { createClient } from "@/lib/supabase/client";
@@ -16,6 +17,10 @@ import { createClient } from "@/lib/supabase/client";
  */
 const Header = () => {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const pathname = usePathname();
+
+  // 어드민 페이지에서는 글로벌 헤더를 숨깁니다.
+  if (pathname?.startsWith("/admin")) return null;
 
   useEffect(() => {
     const handleResize = () => {

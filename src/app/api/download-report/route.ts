@@ -101,17 +101,22 @@ function generateRTFReport(dialogues: any[]): string {
   rtf += `{\\colortbl ;\\red79\\green70\\blue229;\\red219\\green39\\blue119;\\red31\\green41\\blue55;}\n`;
   rtf += `\\viewkind4\\uc1\\paperw11900\\paperh16838\\margl1440\\margr1440\\margt1440\\margb1440\n`;
   
-  rtf += `\\f0\\fs36\\b\\cf1 Dream Teller 개발 대화 전체 기록 및 질의응답 리포트\\b0\\fs22\\cf0\\par\n`;
-  rtf += `\\fs20\\cf3 총 ${dialogues.length}개 질의응답 내역\\cf0\\par\n`;
+  const title = escapeRTF("Dream Teller 개발 대화 전체 기록 및 질의응답 리포트");
+  const summary = escapeRTF(`총 ${dialogues.length}개 질의응답 내역`);
+  
+  rtf += `\\f0\\fs36\\b\\cf1 ${title}\\b0\\fs22\\cf0\\par\n`;
+  rtf += `\\fs20\\cf3 ${summary}\\cf0\\par\n`;
   rtf += `\\line\\par\n`;
 
   dialogues.forEach((item, idx) => {
+    const qTitle = escapeRTF(`Q${idx + 1}. [사용자 프롬프트 질문]`);
+    const aTitle = escapeRTF(`[AI 답변 및 작성 내용]`);
     const qText = escapeRTF(item.question);
     const aText = escapeRTF(item.answer);
 
-    rtf += `\\f0\\fs24\\b\\cf2 Q${idx + 1}. [사용자 프롬프트 질문]\\b0\\par\n`;
+    rtf += `\\f0\\fs24\\b\\cf2 ${qTitle}\\b0\\par\n`;
     rtf += `\\fs22 ${qText}\\par\\line\n`;
-    rtf += `\\fs24\\b\\cf1 [AI 답변 및 작성 내용]\\b0\\par\n`;
+    rtf += `\\fs24\\b\\cf1 ${aTitle}\\b0\\par\n`;
     rtf += `\\fs22 ${aText}\\par\n`;
     rtf += `\\line--------------------------------------------------------------------------------\\par\\line\n`;
   });
@@ -126,5 +131,6 @@ function escapeRTF(str: string): string {
     .replace(/\\/g, "\\\\")
     .replace(/\{/g, "\\{")
     .replace(/\}/g, "\\}")
-    .replace(/\n/g, "\\par\n");
+    .replace(/\n/g, "\\par\n")
+    .replace(/[\u0080-\uFFFF]/g, (c) => `\\u${c.charCodeAt(0)}?`);
 }

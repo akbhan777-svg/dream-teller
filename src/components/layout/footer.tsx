@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 /**
  * Footer 링크 아이템 타입
@@ -16,6 +19,11 @@ interface FooterLink {
  * - 모든 페이지 하단에 고정 노출
  */
 const Footer = () => {
+  const pathname = usePathname();
+
+  // 어드민 페이지에서는 글로벌 푸터를 숨깁니다.
+  if (pathname?.startsWith("/admin")) return null;
+
   /** 하단 링크 목록 */
   // TODO: 실제 약관/정책 페이지 구현 후 href 연결
   const footerLinks: FooterLink[] = [

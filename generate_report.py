@@ -67,7 +67,9 @@ def generate_docx(dialogues, output_path):
     title_run.font.size = Pt(18)
     title_run.font.bold = True
     title_run.font.color.rgb = RGBColor(79, 70, 229) # Purple
-    doc.add_paragraph("작성일자: 2026년 7월 18일\n")
+    import datetime
+    today_str = datetime.datetime.now().strftime("%Y년 %m월 %d일")
+    doc.add_paragraph(f"작성일자: {today_str}\n")
 
     for idx, item in enumerate(dialogues, 1):
         # 질문 섹션
@@ -159,7 +161,9 @@ def generate_pdf(dialogues, output_path):
 
     elements = []
     elements.append(Paragraph("Dream Teller 개발 대화 기록 및 질의응답 리포트", title_style))
-    elements.append(Paragraph("작성일자: 2026년 7월 18일", meta_style))
+    import datetime
+    today_str = datetime.datetime.now().strftime("%Y년 %m월 %d일")
+    elements.append(Paragraph(f"작성일자: {today_str}", meta_style))
     elements.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor('#e5e7eb'), spaceAfter=15))
 
     for idx, item in enumerate(dialogues, 1):
@@ -248,7 +252,10 @@ def generate_html(dialogues, output_path):
         <h1>Dream Teller 개발 대화 기록 및 질의응답 리포트</h1>
         <div class="meta">작성일자: 2026년 7월 18일</div>
     </div>
-"""
+    import datetime
+    today_str = datetime.datetime.now().strftime("%Y년 %m월 %d일")
+    html_content = html_content.replace("2026년 7월 18일", today_str)
+    
     for idx, item in enumerate(dialogues, 1):
         q_text = item['question'].replace('<', '&lt;').replace('>', '&gt;')
         a_text = item['answer'].replace('<', '&lt;').replace('>', '&gt;')
