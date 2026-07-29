@@ -1,20 +1,25 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import OpenAI from "openai";
 import { sendTelegramMessage } from "@/lib/telegram";
 
+export const runtime = "edge"; // Vercel Edge Function으로 오프로딩하여 서버리스 타임아웃(504) 원천 방어
+export const maxDuration = 60; // Edge 환경에서의 최대 허용 대기 시간(60초) 명시적 설정
+
 export async function POST(request: Request) {
+  let orderId: string | undefined;
+  let supabaseAdmin: any;
+  
   try {
     const body = await request.json();
-    const { orderId } = body;
+    orderId = body.orderId;
 
     if (!orderId) {
       return NextResponse.json({ error: "Missing orderId" }, { status: 400 });
     }
 
     // Server-side Admin Supabase Client (For bypassing RLS in background)
-    const supabaseAdmin = createClient(
+    supabaseAdmin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
@@ -28,6 +33,14 @@ export async function POST(request: Request) {
 
     if (orderError || !order) {
       throw new Error(`주문 정보를 찾을 수 없습니다. (ID: ${orderId}) / Error: ${orderError?.message || "None"}`);
+    }
+
+    // 1-1. 서버사이드 보안 및 유해 프롬프트 인젝션 검증 (정보통신망법 준수)
+    const { validateAndSanitizeDreamPrompt } = await import("@/lib/security-filter");
+    const securityCheck = validateAndSanitizeDreamPrompt(order.dream_content || "");
+    if (!securityCheck.isValid) {
+      console.warn(`[Security Alert] Order ${order.order_number} blocked due to prompt injection: ${securityCheck.error}`);
+      throw new Error(`[보안 거부] ${securityCheck.error}`);
     }
 
     // 텔레그램 시작 알림
@@ -62,7 +75,7 @@ export async function POST(request: Request) {
       "gemini-pro"
     ]));
 
-    const prompt = `
+    const systemInstruction = `
       당신은 세계 최고의 꿈 해몽 전문가이자 심층 심리학자입니다. 분석 모드: ${order.expert_field || "freud"}.
       다음 꿈 내용을 매우 심층적이고 학술적이면서도 내담자가 이해하기 쉽게 분석하여 마크다운 포맷으로 작성해주세요.
       기존보다 2배 이상 길고 상세하게 작성해야 하며, 풍부한 은유와 전문 용어를 사용하여 세련된 형태의 보고서를 완성해야 합니다.
@@ -73,21 +86,17 @@ export async function POST(request: Request) {
       3. 유사 사례 분석 (역사적, 임상적 혹은 보편적 무의식 패턴에서 발견되는 유사한 꿈 사례와 그 의미)
       4. 결론 (현재 심리 상태에 대한 통찰 및 실생활에 적용할 수 있는 구체적인 조언)
       
-      [꿈 내용]
-      ${order.dream_content}
-
       [이미지 생성 프롬프트 특별 요구사항 - 수익 직결 요소]
       이 서비스는 유료 서비스이므로, 생성되는 그림이 고객에게 혐오감을 주면 안 되며 '아름답고 소장하고 싶은' 퀄리티여야 합니다.
       생성형 AI(Flux 등)는 돼지, 개, 사람 등 생명체의 이목구비나 신체를 그릴 때 기괴한 괴물처럼 왜곡되는 치명적인 단점이 있습니다.
       따라서, 이미지 프롬프트에는 **절대로 동물, 사람, 생명체를 직접적으로 묘사하지 마세요.**
       대신 꿈의 핵심 '감정'과 '상징'을 추출하여 **초현실적이고 신비로운 자연 풍경(Landscape)이나 빛나는 마법적 사물(Magical Object)**로 은유하여 프롬프트를 작성해야 합니다.
 
-      예시) "황금 돼지가 쏟아지는 꿈" -> "A breathtaking magical forest glowing with radiant golden light and sparkling golden leaves falling like rain, ethereal, beautiful scenery, Studio Ghibli style, majestic, highly detailed, no animals, no humans"
-      예시) "뱀에게 물리는 꿈" -> "A mystical dark enchanted forest with glowing emerald lights and a single radiant green gemstone on a pedestal, cinematic lighting, magical atmosphere, no animals, no humans"
+      예시) "황금 돼지가 쏟아지는 꿈" -> "A breathtaking magical forest glowing with radiant golden light and sparkling golden leaves falling like rain, ethereal, beautiful scenery, masterpiece, 8k resolution, ultra detailed, photorealistic, luxury aesthetic, cinematic lighting, raytracing, 8k uhd, perfect composition, no animals, no humans"
+      예시) "뱀에게 물리는 꿈" -> "A mystical dark enchanted forest with glowing emerald lights and a single radiant green gemstone on a pedestal, cinematic lighting, magical atmosphere, masterpiece, 8k resolution, luxury aesthetic, no animals, no humans"
 
-      보고서 맨 마지막 줄에는 위 규칙을 적용한 영문 프롬프트를 아래 형식으로 정확히 한 줄 추가해 주세요:
-      IMAGE_PROMPT: A breathtaking [metaphorical landscape or magical object representing the dream], Studio Ghibli style, aesthetic, wholesome, masterpiece, warm lighting, perfect composition, highly detailed, no animals, no humans, no faces
-
+      보고서 맨 마지막 줄에는 위 규칙을 적용한 영문 프롬프트를 아래 형식으로 정확히 한줄 추가해 주세요:
+      IMAGE_PROMPT: A breathtaking [metaphorical landscape or magical object representing the dream], masterpiece, 8k resolution, ultra detailed, photorealistic, luxury aesthetic, cinematic lighting, raytracing, 8k uhd, perfect composition, no animals, no humans, no faces, no trademarked logos, no copyrighted IP characters
 
       [매우 중요한 지시사항 - 엄격 준수]
       1. 내부 사고 과정(Draft, Self-Correction, Analysis Mode 등)이나 영어로 된 지시문/구조 요약을 절대 출력하지 마세요.
@@ -95,14 +104,19 @@ export async function POST(request: Request) {
       3. 오직 최종 해몽 결과물(한글)과 마지막 줄의 영문 IMAGE_PROMPT 만 출력해야 합니다.
     `;
 
+    const userPrompt = `[내담자의 꿈 내용]\n${order.dream_content}`;
+
     let analysisText = "";
     let lastError: any = null;
 
     for (const modelName of candidateModels) {
       try {
         // SDK 버전에 따라 'models/' 접두사 포함 및 미포함 모두 시도
-        const model = genAI.getGenerativeModel({ model: modelName });
-        const textResult = await model.generateContent(prompt);
+        const model = genAI.getGenerativeModel({ 
+          model: modelName,
+          systemInstruction: systemInstruction 
+        });
+        const textResult = await model.generateContent(userPrompt);
         analysisText = textResult.response.text();
         if (analysisText) {
           console.log(`Gemini generation succeeded with model: ${modelName}`);
@@ -142,7 +156,7 @@ export async function POST(request: Request) {
 
     if (shouldGenerateImage) {
       try {
-        let englishImagePrompt = "A breathtaking wide-angle surreal dreamscape, scenic nature background fantasy landscape painting, ethereal, nature, sky, cinematic, no faces";
+        let englishImagePrompt = "A breathtaking wide-angle surreal dreamscape, scenic nature background fantasy landscape painting, masterpiece, 8k resolution, ultra detailed, photorealistic, luxury aesthetic, cinematic lighting, 8k uhd, raytracing, no faces";
         
         // Gemini 분석 본문에서 IMAGE_PROMPT 추출
         const promptMatch = analysisText.match(/IMAGE_PROMPT:\s*(.+)/i);
@@ -154,11 +168,13 @@ export async function POST(request: Request) {
 
         // 영문, 숫자, 기본 기호만 남겨 Pollinations API 특수문자 및 한글 UTF-8 인코딩 오류 완전 방지
         const cleanPrompt = englishImagePrompt.replace(/[^a-zA-Z0-9\s,.-]/g, "").trim();
-        const encodedPrompt = encodeURIComponent(cleanPrompt.substring(0, 300));
+        const qualityEnhancedPrompt = `${cleanPrompt}, masterpiece, 8k resolution, ultra detailed, photorealistic, luxury aesthetic, cinematic lighting, 8k uhd, raytracing, perfect composition`;
+        const encodedPrompt = encodeURIComponent(qualityEnhancedPrompt.substring(0, 450));
         const seed = Math.floor(Math.random() * 1000000);
         
-        imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1280&height=1280&seed=${seed}&nologo=true&model=flux`.slice(0, 950);
-        console.log("Pollinations URL generated seamlessly (Length:", imageUrl.length, "):", imageUrl);
+        // Flux 모델의 네이티브 최고 화질 해상도(1024x1024)를 사용하여 서버 뭉개짐(Blur) 현상 방지 + flux-realism 모델 적용
+        imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&seed=${seed}&nologo=true&model=flux-realism`.slice(0, 950);
+        console.log("Pollinations Lossless Native High-Res URL generated (Length:", imageUrl.length, "):", imageUrl);
       } catch (imgPipelineErr) {
         console.error("Image generation pipeline error:", imgPipelineErr);
       }
@@ -210,13 +226,72 @@ export async function POST(request: Request) {
   } catch (error: any) {
     console.error("AI Generate API Error:", error);
     
-    // 에러 발생 시 알림 및 펜딩 상태를 failed 등으로 처리(옵션)
+    // 에러 발생 시 처리 (자동 환불 및 failed 상태 기록)
     try {
+      if (orderId) {
+        // 1. dream_results 상태를 failed로 갱신
+        const { data: existingRes } = await supabaseAdmin
+          .from("dream_results")
+          .select("id")
+          .eq("order_id", orderId)
+          .maybeSingle();
+
+        if (existingRes) {
+          await supabaseAdmin
+            .from("dream_results")
+            .update({ analysis_status: "failed", updated_at: new Date().toISOString() })
+            .eq("id", existingRes.id);
+        } else {
+          await supabaseAdmin
+            .from("dream_results")
+            .insert({ order_id: orderId, analysis_status: "failed", is_public: false });
+        }
+
+        // 2. 만약 이용권 사용(pass_use) 주문이었다면 차감되었던 이용권 1회 자동 환불 복구
+        const { data: targetOrder } = await supabaseAdmin
+          .from("orders")
+          .select("user_id, order_type")
+          .eq("id", orderId)
+          .maybeSingle();
+
+        if (targetOrder && targetOrder.order_type === "pass_use" && targetOrder.user_id) {
+          const { data: userRec } = await supabaseAdmin
+            .from("users")
+            .select("remaining_interprets")
+            .eq("id", targetOrder.user_id)
+            .single();
+
+          const currentRem = userRec?.remaining_interprets || 0;
+
+          // 잔여 횟수 +1 환불
+          await supabaseAdmin
+            .from("users")
+            .update({ remaining_interprets: currentRem + 1 })
+            .eq("id", targetOrder.user_id);
+
+          // 환불 트랜잭션 기록
+          await supabaseAdmin
+            .from("pass_transactions")
+            .insert({
+              user_id: targetOrder.user_id,
+              order_id: orderId,
+              transaction_type: "charge",
+              amount: 1
+            });
+
+          console.log(`Automated pass refund completed for user ${targetOrder.user_id} due to AI error.`);
+        }
+      }
+
       await sendTelegramMessage(
         `🚨 <b>[해몽 AI 파이프라인 에러]</b>\n\n` +
-        `<b>내용:</b> ${error.message}`
+        `<b>주문 ID:</b> <code>${orderId}</code>\n` +
+        `<b>내용:</b> ${error.message}\n` +
+        `<b>조치:</b> 이용권 사용건일 경우 1회 자동 환불 및 <code>failed</code> 상태 처리 완료`
       );
-    } catch (e) {}
+    } catch (e) {
+      console.error("Failed to process AI error handling:", e);
+    }
 
     return NextResponse.json({ error: "AI Generation failed", details: error.message }, { status: 500 });
   }

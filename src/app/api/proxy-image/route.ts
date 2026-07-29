@@ -19,11 +19,15 @@ export async function GET(request: Request) {
     const arrayBuffer = await imageResponse.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    // 고화질 정식 JPEG 파일로 다운로드 헤더 설정
+    const contentType = imageResponse.headers.get("content-type") || "image/png";
+    const isPng = contentType.includes("png") || imageUrl.includes(".png");
+    const extension = isPng ? "png" : "jpg";
+
+    // 고화질 정식 PNG/JPEG 무손실 원본 다운로드 헤더 설정
     const headers = new Headers();
-    headers.set("Content-Type", "image/jpeg");
+    headers.set("Content-Type", isPng ? "image/png" : "image/jpeg");
     headers.set("Content-Length", buffer.length.toString());
-    headers.set("Content-Disposition", `attachment; filename="dream_art_${Date.now()}.jpg"`);
+    headers.set("Content-Disposition", `attachment; filename="dream_art_${Date.now()}.${extension}"`);
     headers.set("Cache-Control", "public, max-age=31536000, immutable");
 
     return new NextResponse(buffer, {

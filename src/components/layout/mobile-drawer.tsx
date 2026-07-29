@@ -21,14 +21,36 @@ interface MobileDrawerProps {
  */
 const MobileDrawer = ({ isOpen, onClose }: MobileDrawerProps) => {
   const [user, setUser] = useState<any>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const supabase = createClient();
 
   useEffect(() => {
+    const checkUserRole = async (currentUser: any) => {
+      if (!currentUser) {
+        setIsAdmin(false);
+        return;
+      }
+      try {
+        const { data: profile } = await supabase
+          .from("users")
+          .select("role")
+          .eq("id", currentUser.id)
+          .maybeSingle();
+
+        setIsAdmin(profile?.role === "admin");
+      } catch (err) {
+        console.error("Role check error:", err);
+        setIsAdmin(false);
+      }
+    };
+
     const getSession = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        setUser(session?.user ?? null);
+        const currentUser = session?.user ?? null;
+        setUser(currentUser);
+        await checkUserRole(currentUser);
       } catch (err) {
         console.error("세션 획득 에러:", err);
       } finally {
@@ -37,8 +59,10 @@ const MobileDrawer = ({ isOpen, onClose }: MobileDrawerProps) => {
     };
     getSession();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      const currentUser = session?.user ?? null;
+      setUser(currentUser);
+      await checkUserRole(currentUser);
       setLoading(false);
     });
 
@@ -66,7 +90,12 @@ const MobileDrawer = ({ isOpen, onClose }: MobileDrawerProps) => {
   const navItems = loading
     ? []
     : isLoggedIn
-    ? [{ href: "/my-page", label: "마이페이지" }]
+    ? isAdmin
+      ? [
+          { href: "/admin", label: "🔑 관리자 대시보드" },
+          { href: "/my-page", label: "마이페이지" },
+        ]
+      : [{ href: "/my-page", label: "마이페이지" }]
     : [
         { href: "/auth", label: "로그인 / 회원가입" },
         { href: "/guest-check", label: "비회원 주문 조회" },

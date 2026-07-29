@@ -61,7 +61,7 @@ const Footer = () => {
           </div>
 
           {/* 링크 그룹 */}
-          <nav className="flex flex-wrap gap-x-6 gap-y-2">
+          <nav aria-label="하단 메뉴" className="flex flex-wrap gap-x-6 gap-y-2">
             {footerLinks.map((link) => (
               <Link
                 key={link.href}

@@ -21,9 +21,15 @@ const HomePage = () => {
     <div className="flex flex-col bg-background text-foreground overflow-hidden">
       {/* 몽환적인 분위기를 위한 전체 오로라 배경 및 레이아웃 */}
       <div className="aurora-bg min-h-screen">
-        <HeroSection />
-        <FeatureGrid />
-        <ExamplesFeed />
+        <section aria-label="메인 히어로">
+          <HeroSection />
+        </section>
+        <section aria-label="핵심 기능 안내">
+          <FeatureGrid />
+        </section>
+        <section aria-label="실제 해몽 결과 예시">
+          <ExamplesFeed />
+        </section>
       </div>
     </div>
   );

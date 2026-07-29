@@ -19,8 +19,10 @@ const Header = () => {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const pathname = usePathname();
 
-  // 어드민 페이지에서는 글로벌 헤더를 숨깁니다.
-  if (pathname?.startsWith("/admin")) return null;
+  const [user, setUser] = useState<any>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const supabase = createClient();
 
   useEffect(() => {
     const handleResize = () => {
@@ -32,15 +34,32 @@ const Header = () => {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  const [user, setUser] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const supabase = createClient();
-
   useEffect(() => {
+    const checkUserRole = async (currentUser: any) => {
+      if (!currentUser) {
+        setIsAdmin(false);
+        return;
+      }
+      try {
+        const { data: profile } = await supabase
+          .from("users")
+          .select("role")
+          .eq("id", currentUser.id)
+          .maybeSingle();
+
+        setIsAdmin(profile?.role === "admin");
+      } catch (err) {
+        console.error("Role check error:", err);
+        setIsAdmin(false);
+      }
+    };
+
     const getSession = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        setUser(session?.user ?? null);
+        const currentUser = session?.user ?? null;
+        setUser(currentUser);
+        await checkUserRole(currentUser);
       } catch (err) {
         console.error("세션 획득 에러:", err);
       } finally {
@@ -49,8 +68,10 @@ const Header = () => {
     };
     getSession();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      const currentUser = session?.user ?? null;
+      setUser(currentUser);
+      await checkUserRole(currentUser);
       setLoading(false);
     });
 
@@ -58,6 +79,9 @@ const Header = () => {
       subscription.unsubscribe();
     };
   }, [supabase]);
+
+  // 어드민 페이지에서는 글로벌 헤더를 숨깁니다. (모든 hook 선언 이후에 배치)
+  if (pathname?.startsWith("/admin")) return null;
 
   const isLoggedIn = !!user;
 
@@ -74,17 +98,27 @@ const Header = () => {
           </Link>
 
           {/* 데스크톱 네비게이션 (md 이상) */}
-          <nav className="hidden items-center gap-6 md:flex">
+          <nav aria-label="메인 메뉴" className="hidden items-center gap-6 md:flex">
             {loading ? (
               <div className="h-5 w-16 animate-pulse rounded bg-muted/40" />
             ) : isLoggedIn ? (
               // 회원 메뉴
-              <Link
-                href="/my-page"
-                className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-              >
-                마이페이지
-              </Link>
+              <div className="flex items-center gap-4">
+                {isAdmin && (
+                  <Link
+                    href="/admin"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-dream-purple/15 border border-dream-purple/40 text-dream-purple-light hover:bg-dream-purple/30 text-xs font-bold transition-all shadow-sm"
+                  >
+                    관리자 대시보드
+                  </Link>
+                )}
+                <Link
+                  href="/my-page"
+                  className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  마이페이지
+                </Link>
+              </div>
             ) : (
               // 비회원 메뉴
               <>
@@ -108,7 +142,9 @@ const Header = () => {
           <button
             onClick={() => setIsDrawerOpen(true)}
             className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground md:hidden"
-            aria-label="메뉴 열기"
+            aria-label="모바일 메뉴 열기"
+            aria-expanded={isDrawerOpen}
+            aria-controls="mobile-drawer"
           >
             <Menu className="h-5 w-5" />
           </button>

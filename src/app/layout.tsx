@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import Script from "next/script";
 import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
+import ContactWidget from "@/components/contact/contact-widget";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -59,6 +60,7 @@ const RootLayout = ({ children }: Readonly<RootLayoutProps>) => {
         <Header />
         <main className="flex-1">{children}</main>
         <Footer />
+        <ContactWidget />
       </body>
     </html>
   );

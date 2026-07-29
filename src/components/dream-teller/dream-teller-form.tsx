@@ -6,6 +6,12 @@ import { ChevronDown, Sparkles, Brain, Moon, Eye, CheckCircle2, Phone, Lock, Eye
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
+import dynamic from "next/dynamic";
+
+const MemberOnlyModal = dynamic(
+  () => import("./member-only-modal").then(mod => mod.MemberOnlyModal),
+  { ssr: false }
+);
 
 type Step = 1 | 2 | 3 | 4;
 type ExpertField = "freud" | "jung" | "neuroscience" | "gestalt" | null;
@@ -29,7 +35,8 @@ export default function DreamTellerForm() {
 
   useEffect(() => {
     const checkAuth = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: authData } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
+      const user = authData?.user || null;
       
       // 세션 스토리지에서 보존된 데이터 복원
       const savedContent = sessionStorage.getItem("dreamContent");
@@ -92,6 +99,7 @@ export default function DreamTellerForm() {
   const [guestPhone, setGuestPhone] = useState("");
   const [guestPassword, setGuestPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [isRefundConsentAgreed, setIsRefundConsentAgreed] = useState(false);
 
   // Refs for auto-scrolling
   const step1Ref = useRef<HTMLDivElement>(null);
@@ -104,10 +112,10 @@ export default function DreamTellerForm() {
   // Calculate total amount
   const calculateTotal = () => {
     if (paymentOption === "use_pass") return 0;
-    if (paymentOption === "pass5") return 7200;
-    if (paymentOption === "pass10") return 13500;
+    if (paymentOption === "pass5") return 4760;
+    if (paymentOption === "pass10") return 8330;
     // single
-    return 1500 + (includeImage ? 500 : 0);
+    return 990 + (includeImage ? 200 : 0);
   };
 
   const scrollToStep = (step: Step) => {
@@ -420,6 +428,14 @@ export default function DreamTellerForm() {
                 className="relative w-full h-48 bg-[#13131b] text-white p-6 rounded-xl border border-white/20 focus:border-dream-purple focus:bg-[#0d0d12] focus:outline-none focus:ring-1 focus:ring-dream-purple resize-none placeholder:text-slate-500 text-lg leading-relaxed shadow-inner transition-all"
               />
             </div>
+
+            {/* 프라이버시 안심 안내 (PIPA) */}
+            <div className="mt-3 p-3 rounded-lg border border-dream-purple/20 bg-dream-purple/10 flex items-center gap-2 text-xs text-slate-300">
+              <Lock className="w-3.5 h-3.5 text-dream-purple-light flex-shrink-0" />
+              <span>
+                입력하신 꿈 내용은 <strong>AI 모델 학습에 활용되지 않으며</strong>, 개인 식별 정보 없이 안전하게 암호화되어 전송됩니다.
+              </span>
+            </div>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mt-4">
               <div className="flex items-center gap-3">
                 <span className={cn(
@@ -559,20 +575,20 @@ export default function DreamTellerForm() {
                       <div className="mt-4 flex items-center gap-3 p-3 rounded-lg bg-black/40 border border-white/10" onClick={(e) => e.stopPropagation()}>
                         <input type="checkbox" id="includeImage" checked={includeImage} onChange={(e) => setIncludeImage(e.target.checked)} className="w-4 h-4 accent-dream-pink" />
                         <label htmlFor="includeImage" className="text-sm text-slate-300 cursor-pointer flex-1">
-                          AI 시각화 이미지 추가 (+500원)
+                          AI 시각화 이미지 추가 (+200원)
                         </label>
                       </div>
                     )}
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="text-xl font-bold text-white">1,500원</div>
+                  <div className="text-xl font-bold text-white">990원</div>
                 </div>
               </label>
 
               {/* 5회권 */}
               <label className={cn("flex items-start justify-between p-5 rounded-xl border cursor-pointer transition-all relative overflow-hidden", paymentOption === "pass5" ? "border-dream-purple bg-dream-purple/20 shadow-[0_0_15px_rgba(139,92,246,0.15)]" : "border-white/20 bg-[#13131b] hover:bg-[#1a1a24] hover:border-white/30")}>
-                <div className="absolute top-0 right-0 bg-dream-purple text-white text-xs font-bold px-3 py-1 rounded-bl-lg shadow-md z-10">4% 할인 + 이미지 무료</div>
+                <div className="absolute top-0 right-0 bg-dream-purple text-white text-xs font-bold px-3 py-1 rounded-bl-lg shadow-md z-10">총 20% 할인 (이미지 무료)</div>
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -skew-x-12 translate-x-[-100%] group-hover:animate-shimmer" />
                 <div className="flex items-start gap-4 relative z-10">
                   <input type="radio" name="payment" checked={paymentOption === "pass5"} onChange={() => handlePaymentOptionSelect("pass5")} className="mt-1 w-4 h-4 accent-dream-purple" />
@@ -582,14 +598,15 @@ export default function DreamTellerForm() {
                   </div>
                 </div>
                 <div className="text-right mt-6 relative z-10">
-                  <div className="text-sm text-slate-500 line-through">7,500원</div>
-                  <div className="text-xl font-bold text-dream-purple-light">7,200원</div>
+                  <div className="text-sm text-slate-500 line-through">5,950원</div>
+                  <div className="text-xl font-bold text-dream-purple-light">4,760원</div>
                 </div>
               </label>
 
               {/* 10회권 */}
               <label className={cn("flex items-start justify-between p-5 rounded-xl border cursor-pointer transition-all relative overflow-hidden", paymentOption === "pass10" ? "border-dream-pink bg-dream-pink/20 shadow-[0_0_15px_rgba(236,72,153,0.15)]" : "border-white/20 bg-[#13131b] hover:bg-[#1a1a24] hover:border-white/30")}>
-                <div className="absolute top-0 right-0 bg-dream-pink text-white text-xs font-bold px-3 py-1 rounded-bl-lg shadow-md z-10">10% 할인 + 이미지 무료</div>
+                <div className="absolute top-0 right-0 bg-dream-pink text-white text-xs font-bold px-3 py-1 rounded-bl-lg shadow-md z-10">총 30% 할인 (이미지 무료)</div>
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -skew-x-12 translate-x-[-100%] group-hover:animate-shimmer" />
                 <div className="flex items-start gap-4 relative z-10">
                   <input type="radio" name="payment" checked={paymentOption === "pass10"} onChange={() => handlePaymentOptionSelect("pass10")} className="mt-1 w-4 h-4 accent-dream-pink" />
                   <div>
@@ -598,18 +615,34 @@ export default function DreamTellerForm() {
                   </div>
                 </div>
                 <div className="text-right mt-6 relative z-10">
-                  <div className="text-sm text-slate-500 line-through">15,000원</div>
-                  <div className="text-xl font-bold text-dream-pink-light">13,500원</div>
+                  <div className="text-sm text-slate-500 line-through">11,900원</div>
+                  <div className="text-xl font-bold text-dream-pink-light">8,330원</div>
                 </div>
               </label>
               
-              {/* 유의사항 */}
+              {/* 유의사항 및 의료/심리 면책 조항 */}
               <div className="mt-6 p-4 rounded-lg bg-dream-blue/10 border border-dream-blue/30 text-sm text-slate-200">
                 <p className="flex items-start gap-2">
                   <span className="mt-0.5 text-dream-blue-light">ℹ️</span>
-                  <span>결제 후 보통 3분 이내에 생성이 완료됩니다. AI 분석 결과는 의학적 진단을 대체할 수 없습니다.</span>
+                  <span>
+                    결제 후 보통 3분 이내에 생성이 완료됩니다. <strong>본 서비스는 엔터테인먼트 목적의 AI 상징 분석 리포트이며, 전문적인 의학적·정신과적 진단이나 심리 치료를 대체할 수 없습니다.</strong>
+                  </span>
                 </p>
               </div>
+
+              {/* 환불 불가 사전 동의 (컴플라이언스) */}
+              <label htmlFor="refund-consent-checkbox" className="mt-4 flex items-center gap-3 p-3 rounded-lg border border-red-500/30 bg-red-500/10 cursor-pointer transition-colors hover:bg-red-500/20">
+                <input 
+                  type="checkbox" 
+                  id="refund-consent-checkbox"
+                  checked={isRefundConsentAgreed}
+                  onChange={(e) => setIsRefundConsentAgreed(e.target.checked)}
+                  className="w-5 h-5 rounded border-gray-400 text-red-500 focus:ring-red-500 bg-black/50 cursor-pointer"
+                />
+                <span className="text-sm font-semibold text-red-200 select-none">
+                  [필수] 결제 완료 시 즉시 AI 서비스가 제공되므로 청약철회(환불)가 불가함에 동의합니다.
+                </span>
+              </label>
             </div>
           </div>
         </div>
@@ -631,7 +664,8 @@ export default function DreamTellerForm() {
               disabled={
                 !expert || 
                 dreamContent.trim().length < 20 || 
-                (!isLoggedIn && (guestPhone.length < 12 || guestPassword.length < 4 || paymentOption !== "single"))
+                (!isLoggedIn && (guestPhone.length < 12 || guestPassword.length < 4 || paymentOption !== "single")) ||
+                !isRefundConsentAgreed
               }
               className="group relative inline-flex p-[2px] rounded-full bg-gradient-to-r from-dream-pink via-dream-purple to-dream-blue overflow-hidden transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105"
             >
@@ -649,42 +683,13 @@ export default function DreamTellerForm() {
 
       {/* 회원 전용 다회권 선택 시 비회원 안내 팝업 모달 */}
       {showMemberOnlyModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-300">
-          <div className="relative bg-[#181824] border border-dream-purple/40 rounded-3xl p-6 md:p-8 max-w-md w-full text-center space-y-6 shadow-[0_0_50px_rgba(139,92,246,0.3)]">
-            <div className="w-16 h-16 rounded-full bg-dream-purple/20 border border-dream-purple/40 flex items-center justify-center mx-auto text-dream-purple-light">
-              <Sparkles className="w-8 h-8 text-dream-pink animate-pulse" />
-            </div>
-
-            <div className="space-y-2">
-              <h3 className="text-xl font-bold text-white">회원 전용 할인 상품입니다</h3>
-              <p className="text-sm text-slate-300 leading-relaxed">
-                다회권(5회/10회) 할인 혜택은 **회원 전용 서비스**입니다.<br />
-                3초 간편 소셜 가입 후 즉시 할인가로 이용하실 수 있습니다!
-              </p>
-            </div>
-
-            <div className="flex flex-col gap-3 pt-2">
-              <Button
-                onClick={() => router.push("/auth")}
-                className="w-full bg-gradient-to-r from-dream-purple to-dream-pink text-white font-bold py-6 rounded-xl shadow-lg hover:scale-[1.02] transition-all flex items-center justify-center gap-2 cursor-pointer text-sm"
-              >
-                <UserCheck className="w-4 h-4" />
-                <span>3초 회원가입 / 로그인하고 할인받기</span>
-              </Button>
-
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowMemberOnlyModal(false);
-                  setPaymentOption("single");
-                }}
-                className="w-full border-white/20 text-slate-300 hover:text-white hover:bg-white/5 py-6 rounded-xl cursor-pointer text-sm"
-              >
-                1회권(단판)으로 변경하여 결제
-              </Button>
-            </div>
-          </div>
-        </div>
+        <MemberOnlyModal 
+          onLogin={() => router.push("/auth")}
+          onCancel={() => {
+            setShowMemberOnlyModal(false);
+            setPaymentOption("single");
+          }}
+        />
       )}
     </div>
   );

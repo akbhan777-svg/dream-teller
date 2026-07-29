@@ -48,33 +48,52 @@ export default function ContactClient() {
   // 문의하기 입력 폼 상태
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
-  const [category, setCategory] = useState("inquiry");
+  const [category, setCategory] = useState("일반 문의");
   const [content, setContent] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [error, setError] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
     if (!email || !name || !content) {
-      setError("모든 필수 입력란을 채워주세요.");
+      setError("모든 필수 항목(연락처/닉네임, 회신받을 이메일 주소, 상세 문의 내용)을 채워주세요.");
       return;
     }
 
     setIsLoading(true);
 
-    // 문의 접수 가상 시뮬레이션
-    setTimeout(() => {
+    try {
+      const res = await fetch("/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name,
+          email,
+          category,
+          message: content,
+        }),
+      });
+
+      if (res.ok) {
+        setShowSuccessModal(true);
+        // 입력 폼 클리어
+        setEmail("");
+        setName("");
+        setContent("");
+        setCategory("일반 문의");
+      } else {
+        const data = await res.json();
+        setError(data.error || "문의 접수 중 오류가 발생했습니다. 다시 시도해 주세요.");
+      }
+    } catch (err) {
+      console.error(err);
+      setError("서버와 통신 중 에러가 발생했습니다.");
+    } finally {
       setIsLoading(false);
-      setShowSuccessModal(true);
-      // 입력 폼 클리어
-      setEmail("");
-      setName("");
-      setContent("");
-      setCategory("inquiry");
-    }, 1500);
+    }
   };
 
   return (
@@ -147,16 +166,17 @@ export default function ContactClient() {
           <div className="rounded-2xl border border-white/10 bg-[#1f1f2e] p-6 shadow-[0_0_30px_rgba(0,0,0,0.3)]">
             <form onSubmit={handleSubmit} className="space-y-4">
               
-              {/* Name */}
+              {/* Nickname / Phone */}
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-slate-300 px-1 flex items-center gap-1.5">
-                  <User className="w-3.5 h-3.5 text-dream-purple-light" /> 이름
+                  <User className="w-3.5 h-3.5 text-dream-purple-light" /> 연락처 (또는 회원 닉네임) <span className="text-red-400">*</span>
                 </label>
                 <input
+                  required
                   type="text"
                   value={name}
                   onChange={(e) => { setName(e.target.value); setError(""); }}
-                  placeholder="홍길동"
+                  placeholder="010-0000-0000 (비회원은 연락처 입력)"
                   disabled={isLoading}
                   className="w-full bg-[#13131b] text-white p-3.5 rounded-xl border border-white/20 focus:border-dream-purple focus:bg-[#0d0d12] focus:outline-none text-xs placeholder:text-slate-500 shadow-inner transition-all"
                 />
@@ -165,9 +185,10 @@ export default function ContactClient() {
               {/* Email */}
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-slate-300 px-1 flex items-center gap-1.5">
-                  <Mail className="w-3.5 h-3.5 text-dream-purple-light" /> 회신받을 이메일 주소
+                  <Mail className="w-3.5 h-3.5 text-dream-purple-light" /> 회신받을 이메일 주소 <span className="text-red-400">*</span>
                 </label>
                 <input
+                  required
                   type="email"
                   value={email}
                   onChange={(e) => { setEmail(e.target.value); setError(""); }}
@@ -188,17 +209,17 @@ export default function ContactClient() {
                   disabled={isLoading}
                   className="w-full bg-[#13131b] text-white p-3.5 rounded-xl border border-white/20 focus:border-dream-purple focus:outline-none text-xs shadow-inner cursor-pointer"
                 >
-                  <option value="inquiry">일반 문의</option>
-                  <option value="payment">결제 오류 / 위젯 문의</option>
-                  <option value="refund">환불 / 취소 요청</option>
-                  <option value="other">기타</option>
+                  <option value="일반 문의">일반 문의</option>
+                  <option value="결제/환불">결제/환불</option>
+                  <option value="오류 제보">오류 제보</option>
+                  <option value="기타">기타</option>
                 </select>
               </div>
 
               {/* Description */}
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-slate-300 px-1 flex items-center gap-1.5">
-                  상세 문의 내용
+                  상세 문의 내용 <span className="text-red-400">*</span>
                 </label>
                 <textarea
                   value={content}
@@ -219,8 +240,8 @@ export default function ContactClient() {
               {/* Submit Button */}
               <Button
                 type="submit"
-                disabled={isLoading}
-                className="w-full bg-gradient-to-r from-dream-purple to-dream-blue hover:opacity-90 text-white font-bold py-5 rounded-xl transition-all shadow-[0_0_20px_rgba(139,92,246,0.2)] flex items-center justify-center gap-2 cursor-pointer text-xs"
+                disabled={isLoading || !name.trim() || !email.trim() || !content.trim()}
+                className="w-full bg-gradient-to-r from-dream-purple to-dream-blue hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold py-5 rounded-xl transition-all shadow-[0_0_20px_rgba(139,92,246,0.2)] flex items-center justify-center gap-2 cursor-pointer text-xs"
               >
                 {isLoading ? (
                   <>

@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 export default function PaymentsClient() {
   const searchParams = useSearchParams();
   const [orderId, setOrderId] = useState("");
-  const [customerKey, setCustomerKey] = useState("");
+  const [customerKey, setCustomerKey] = useState("ANONYMOUS");
 
   const planParam = searchParams.get("plan");
   const expertParam = searchParams.get("expert");
@@ -36,17 +36,17 @@ export default function PaymentsClient() {
   const orderName = `[Dream Teller] ${expertName} 관점 - ${planName}`;
 
   const [isLoading, setIsLoading] = useState(true);
+  const [orderErrorMsg, setOrderErrorMsg] = useState<string>("");
   const isFetchedRef = useRef(false);
 
   useEffect(() => {
+    let isMounted = true;
+
     // 다회권 차감 플로우인 경우 주문서를 미리 생성하지 않음 (버튼 클릭 시 생성)
     if (planParam === "use_pass") {
       setIsLoading(false);
       return;
     }
-
-    if (isFetchedRef.current) return;
-    isFetchedRef.current = true;
 
     const dreamContent = sessionStorage.getItem("dreamContent") || "";
     const guestPhone = sessionStorage.getItem("guestPhone") || "";
@@ -58,7 +58,7 @@ export default function PaymentsClient() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            amount,
+            amount: Number(amount),
             plan: planParam || "single",
             expertField: expertParam || "freud",
             includesImage: includesImageParam,
@@ -68,25 +68,43 @@ export default function PaymentsClient() {
           })
         });
         
-        const data = await res.json();
-        if (data.success) {
-          setOrderId(data.orderId);
-          if (typeof window !== "undefined") {
-            sessionStorage.setItem("activeOrderId", data.orderId);
-          }
-          setCustomerKey(data.customerKey || "ANONYMOUS"); 
-        } else {
-          console.error("Order creation failed:", data.error);
-          alert("주문서 생성에 실패했습니다: " + data.error);
+        let data;
+        try {
+          data = await res.json();
+        } catch (jsonErr) {
+          throw new Error(`API 응답 파싱 실패 (상태 코드: ${res.status}) - Vercel 서버 에러일 수 있습니다.`);
         }
-      } catch (err) {
-        console.error("Fetch order error:", err);
+
+        if (isMounted) {
+          if (data.success && data.orderId) {
+            setOrderId(data.orderId);
+            if (typeof window !== "undefined") {
+              sessionStorage.setItem("activeOrderId", data.orderId);
+            }
+            const keyToUse = (!data.customerKey || data.customerKey === "00000000-0000-0000-0000-000000000000") ? "ANONYMOUS" : data.customerKey;
+            setCustomerKey(keyToUse); 
+          } else {
+            console.error("Order creation failed:", data.error);
+            setOrderErrorMsg(data.error || "주문서 생성에 실패했습니다.");
+          }
+        }
+      } catch (err: any) {
+        if (isMounted) {
+          console.error("Fetch order error:", err);
+          setOrderErrorMsg(err.message || "알 수 없는 네트워크 오류가 발생했습니다.");
+        }
       } finally {
-        setIsLoading(false);
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     };
 
     createPendingOrder();
+
+    return () => {
+      isMounted = false;
+    };
   }, [amount, planParam, expertParam]);
 
   const handleUsePass = async () => {
@@ -159,24 +177,53 @@ export default function PaymentsClient() {
 
   if (!orderId) {
     return (
-      <div className="w-full text-center p-12 text-slate-400">
-        주문서를 생성할 수 없습니다. 뒤로 돌아가 다시 시도해주세요.
+      <div className="w-full max-w-md mx-auto relative mt-10 text-center">
+        <div className="bg-[#1c1c21]/90 backdrop-blur-xl border border-white/10 p-8 rounded-2xl shadow-2xl space-y-5">
+          <Receipt className="w-12 h-12 text-slate-500 mx-auto mb-2" />
+          <h3 className="text-lg font-bold text-white">주문서 생성 중 일시적 연결 지연</h3>
+          <p className="text-xs text-slate-400 leading-relaxed">
+            네트워크 연결이 일시적으로 지연되었거나 주문서 생성이 완료되지 않았습니다.<br/>
+            아래 버튼을 눌러 주문서를 재생성해 주세요.
+          </p>
+          {orderErrorMsg && (
+            <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-xs p-3 rounded-lg mt-2 text-left break-all">
+              에러 원인: {orderErrorMsg}
+            </div>
+          )}
+          <div className="flex flex-col gap-3 pt-2">
+            <button
+              onClick={() => {
+                isFetchedRef.current = false;
+                window.location.reload();
+              }}
+              className="w-full bg-gradient-to-r from-dream-purple to-dream-blue text-white font-bold py-3.5 rounded-xl hover:opacity-90 transition-opacity text-xs cursor-pointer"
+            >
+              🔄 주문서 다시 생성하기
+            </button>
+            <a
+              href="/"
+              className="w-full bg-white/5 border border-white/10 text-slate-300 font-medium py-3 rounded-xl hover:bg-white/10 transition-colors text-xs inline-block"
+            >
+              🏠 메인으로 돌아가기
+            </a>
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="w-full max-w-lg mx-auto relative animate-in fade-in slide-in-from-bottom-8 duration-700">
+    <div className="w-full max-w-lg mx-auto relative">
       {/* Glow Effect behind receipt */}
       <div className="absolute -inset-1 bg-gradient-to-b from-dream-purple via-dream-blue to-dream-pink rounded-3xl blur-xl opacity-30 pointer-events-none" />
       
       {/* Receipt Container */}
-      <div className="relative bg-[#1c1c21]/80 backdrop-blur-2xl border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
+      <div className="relative bg-[#1c1c21] border border-white/10 rounded-2xl shadow-2xl">
         
         {/* Top Zig-zag pattern simulation */}
-        <div className="w-full h-3 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMCIgaGVpZ2h0PSIxMCI+PHBvbHlnb24gcG9pbnRzPSIwLDAgMTAsMTAgMjAsMCAyMCwxMCAwLDEwIiBmaWxsPSJyZ2JhKDE1LDE1LDE5LDAuNSkiLz48L3N2Zz4=')] opacity-50" />
+        <div className="w-full h-3 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMCIgaGVpZ2h0PSIxMCI+PHBvbHlnb24gcG9pbnRzPSIwLDAgMTAsMTAgMjAsMCAyMCwxMCAwLDEwIiBmaWxsPSJyZ2JhKDE1LDE1LDE5LDAuNSkiLz48L3N2Zz4=')] opacity-50 rounded-t-2xl" />
         
-        <div className="px-6 md:px-8 py-8">
+        <div className="px-5 sm:px-8 py-8">
           <div className="flex items-center justify-center gap-2 mb-8">
             <Receipt className="w-6 h-6 text-dream-purple-light" />
             <h2 className="text-xl font-bold tracking-widest text-white uppercase">Receipt</h2>
@@ -204,8 +251,8 @@ export default function PaymentsClient() {
             </div>
           </div>
 
-          {/* Toss Payments Widget */}
-          <div className={cn("p-1 rounded-xl bg-white/5 border border-white/10", "min-h-[400px]")}>
+          {/* Toss Payments Widget Container */}
+          <div className="p-2 sm:p-3 rounded-2xl bg-[#15151c] border border-white/10 min-h-[380px] touch-auto">
             <PaymentWidget 
               amount={amount} 
               orderId={orderId} 

@@ -2,36 +2,71 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendTelegramMessage } from "@/lib/telegram";
+import bcrypt from "bcryptjs";
+
+const sanitizeText = (text: string) => text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 
 export async function POST(request: Request) {
   try {
-    const supabase = await createClient();
     const supabaseAdmin = createAdminClient();
-    const { data: { user } } = await supabase.auth.getUser();
+
+    // 비회원 쿠키 없는 상태에서 auth.getUser() 예외 안전 방어
+    let user: any = null;
+    try {
+      const supabase = await createClient();
+      const { data } = await supabase.auth.getUser();
+      user = data?.user || null;
+    } catch {
+      user = null;
+    }
 
     const body = await request.json();
     const { amount, plan, expertField, dreamContent, includesImage, guestPhone, guestPassword } = body;
-    const isImageIncluded = includesImage !== false; // 기본값 true
+    const isImageIncluded = includesImage === true || includesImage === "true" || includesImage === undefined;
 
     // 유저 ID 결정 (로그인 유저 또는 비회원 시스템 고정 UUID)
     const GUEST_USER_ID = "00000000-0000-0000-0000-000000000000";
     const userId = user ? user.id : GUEST_USER_ID;
 
     // 0. public.users 레코드 존재 여부 확인 및 자동 생성 (FKEY constraint 에러 방지)
-    const { data: existingUser } = await (supabaseAdmin.from("users") as any)
-      .select("id")
-      .eq("id", userId)
-      .maybeSingle();
+    try {
+      if (userId === GUEST_USER_ID) {
+        // 비회원 계정 존재 여부 확인 후 생성
+        const { data: existingGuest } = await (supabaseAdmin.from("users") as any)
+          .select("id")
+          .eq("id", GUEST_USER_ID)
+          .maybeSingle();
 
-    if (!existingUser) {
-      await (supabaseAdmin.from("users") as any).upsert({
-        id: userId,
-        email: user?.email || "guest@dreamteller.com",
-        nickname: user?.user_metadata?.name || user?.user_metadata?.full_name || (user ? "회원" : "비회원"),
-        provider: user?.app_metadata?.provider || "guest",
-        role: user ? "user" : "guest",
-        remaining_interprets: 0,
-      });
+        if (!existingGuest) {
+          await (supabaseAdmin.from("users") as any).upsert({
+            id: GUEST_USER_ID,
+            email: "guest@dreamteller.com",
+            nickname: "비회원",
+            provider: "guest",
+            role: "member", // Role member로 통일
+            remaining_interprets: 0,
+          });
+        }
+      } else {
+        // 회원 계정 upsert
+        const { data: existingUser } = await (supabaseAdmin.from("users") as any)
+          .select("id")
+          .eq("id", userId)
+          .maybeSingle();
+
+        if (!existingUser) {
+          await (supabaseAdmin.from("users") as any).upsert({
+            id: userId,
+            email: user?.email || "guest@dreamteller.com",
+            nickname: user?.user_metadata?.name || user?.user_metadata?.full_name || "회원",
+            provider: user?.app_metadata?.provider || "guest",
+            role: "member",
+            remaining_interprets: 0,
+          });
+        }
+      }
+    } catch (e: any) {
+      console.warn("User record upsert warn:", e?.message);
     }
 
     // 1. 가격 및 상품 검증
@@ -39,29 +74,30 @@ export async function POST(request: Request) {
     let orderType = "single_interpretation";
     
     if (plan === "single") {
-      expectedAmount = isImageIncluded ? 2000 : 1500;
+      expectedAmount = isImageIncluded ? 1190 : 990;
       orderType = "single_interpretation";
     } else if (plan === "pass5") {
       if (!user) {
-        return NextResponse.json({ error: "비회원은 할인 다회권을 결제할 수 없습니다. 회원가입 후 이용해 주세요." }, { status: 403 });
+        return NextResponse.json({ success: false, error: "비회원은 할인 다회권을 결제할 수 없습니다. 회원가입 후 이용해 주세요." }, { status: 403 });
       }
-      expectedAmount = 7200;
+      expectedAmount = 4760;
       orderType = "pass_charge_5";
     } else if (plan === "pass10") {
       if (!user) {
-        return NextResponse.json({ error: "비회원은 할인 다회권을 결제할 수 없습니다. 회원가입 후 이용해 주세요." }, { status: 403 });
+        return NextResponse.json({ success: false, error: "비회원은 할인 다회권을 결제할 수 없습니다. 회원가입 후 이용해 주세요." }, { status: 403 });
       }
-      expectedAmount = 13500;
+      expectedAmount = 8330;
       orderType = "pass_charge_10";
     } else if (plan === "use_pass") {
       expectedAmount = 0;
       orderType = "pass_use";
     } else {
-      return NextResponse.json({ error: "Invalid plan" }, { status: 400 });
+      return NextResponse.json({ success: false, error: "Invalid plan" }, { status: 400 });
     }
 
-    if (amount !== expectedAmount) {
-      return NextResponse.json({ error: "Amount mismatch" }, { status: 400 });
+    const numAmount = Number(amount);
+    if (isNaN(numAmount) || numAmount !== expectedAmount) {
+      return NextResponse.json({ success: false, error: `Amount mismatch: received ${amount}, expected ${expectedAmount}` }, { status: 400 });
     }
 
     // 주문 번호 생성 (예: DT_timestamp_random)
@@ -70,7 +106,7 @@ export async function POST(request: Request) {
     // 2. 다회권 차감 (use_pass) 플로우 분기
     if (plan === "use_pass") {
       if (!user) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
       }
 
       // 2-1. 유저의 잔여 횟수 조회
@@ -83,7 +119,7 @@ export async function POST(request: Request) {
       const currentPasses = userRec?.remaining_interprets || 0;
 
       if (userError || !userRec || currentPasses < 1) {
-        return NextResponse.json({ error: "Insufficient passes" }, { status: 403 });
+        return NextResponse.json({ success: false, error: "Insufficient passes" }, { status: 403 });
       }
 
       // 2-2. 주문 생성 (결제 불필요하므로 즉시 paid 처리)
@@ -95,7 +131,7 @@ export async function POST(request: Request) {
           order_type: orderType,
           payment_status: "paid",
           expert_field: expertField,
-          dream_content: dreamContent,
+          dream_content: sanitizeText(dreamContent || ""),
           includes_image: true,
         })
         .select()
@@ -159,36 +195,40 @@ export async function POST(request: Request) {
     }
 
     // 3. 일반 결제 플로우 (pending 주문 생성)
+    const hashedGuestPassword = (guestPassword && typeof guestPassword === "string" && guestPassword.trim()) 
+      ? bcrypt.hashSync(guestPassword.trim(), 10) 
+      : null;
+
     const { data: order, error: orderError } = await (supabaseAdmin.from("orders") as any)
       .insert({
         user_id: userId,
         order_number: orderNumber,
-        total_amount: amount,
+        total_amount: numAmount,
         order_type: orderType,
         payment_status: "pending",
         expert_field: expertField,
-        dream_content: dreamContent,
+        dream_content: sanitizeText(dreamContent || ""),
         includes_image: isImageIncluded,
         guest_phone: guestPhone || null,
-        guest_password: guestPassword || null,
+        guest_password: hashedGuestPassword,
       })
       .select()
       .single();
 
     if (orderError) {
       console.error("Orders insert DB error:", orderError);
-      throw orderError;
+      return NextResponse.json({ success: false, error: orderError.message || "Failed to insert order" }, { status: 500 });
     }
 
     return NextResponse.json({
       success: true,
       orderId: orderNumber,
-      amount: amount,
+      amount: numAmount,
       customerKey: userId,
     });
 
   } catch (error: any) {
     console.error("Order creation error:", error);
-    return NextResponse.json({ error: error?.message || "Internal server error" }, { status: 500 });
+    return NextResponse.json({ success: false, error: error?.message || "Internal server error" }, { status: 500 });
   }
 }

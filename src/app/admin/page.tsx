@@ -12,35 +12,33 @@ import {
   TrendingUp 
 } from "lucide-react";
 
+import { getAdminMetrics } from "@/app/actions/admin";
+import { redirect } from "next/navigation";
+
 /**
  * 관리자 메인 페이지 (Dashboard)
  * PRD 5.3 관리자 UX 페이지 구성 - 1. 관리자 메인 페이지
  */
-const AdminPage = () => {
-  // TODO: 백엔드 API 연동 후 더미 데이터 교체 (GET /api/admin/metrics 등)
-  const summaryData = {
-    totalRevenue: 24500000,
-    revenueChange: "+12.5%",
-    totalOrders: 3240,
-    orderChange: "+8.2%",
-    newUsers: 1450,
-    userChange: "+15.3%",
-    aiInterpretations: 8520,
-    aiChange: "+24.1%",
+const AdminPage = async () => {
+  const result = await getAdminMetrics();
+  
+  if (result.error === "Unauthorized" || result.error === "Not authenticated") {
+    redirect("/"); // 권한 없으면 메인으로
+  }
+
+  const summaryData = result.data || {
+    totalRevenue: 0,
+    revenueChange: "+0.0%",
+    totalOrders: 0,
+    orderChange: "+0.0%",
+    newUsers: 0,
+    userChange: "+0.0%",
+    aiInterpretations: 0,
+    aiChange: "+0.0%",
   };
 
-  const monthlyRevenue = [
-    { month: "12월", amount: 15000000 },
-    { month: "1월", amount: 18000000 },
-    { month: "2월", amount: 16500000 },
-    { month: "3월", amount: 21000000 },
-    { month: "4월", amount: 19500000 },
-    { month: "5월", amount: 23000000 },
-    { month: "6월", amount: 24500000 },
-    { month: "7월", amount: 28000000 },
-  ];
-
-  const maxRevenue = Math.max(...monthlyRevenue.map((d) => d.amount));
+  const monthlyRevenue = result.data?.monthlyRevenue || [];
+  const maxRevenue = Math.max(...monthlyRevenue.map((d) => d.amount), 1); // 0 방지
 
   return (
     <div className="flex flex-col gap-8">

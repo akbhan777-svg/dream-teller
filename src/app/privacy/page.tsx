@@ -81,11 +81,20 @@ export default function PrivacyPage() {
             <section className="space-y-3">
               <h2 className="text-lg font-bold text-white flex items-center gap-2">
                 <span className="w-1.5 h-4 bg-dream-purple rounded-full" />
-                3. 개인정보의 제3자 제공 및 외부 API 전송
+                3. 개인정보 제3자 제공, 외부 API 전송 및 AI 모델 학습 정책 (Data Opt-Out)
               </h2>
               <p>
-                회사는 유저의 개인정보를 원칙적으로 외부에 제공하지 않습니다. 다만, 핵심 AI 서비스 제공을 위해 최소한의 정보를 암호화하여 연동하고 있습니다.
+                회사는 유저의 개인정보를 원칙적으로 외부에 제공하지 않습니다. 다만, 핵심 AI 서비스 제공을 위해 최소한의 비식별 데이터를 암호화하여 연동하고 있습니다.
               </p>
+              <div className="p-4 rounded-xl border border-dream-purple/30 bg-dream-purple/10 text-xs text-slate-200 leading-relaxed">
+                <p className="font-bold text-dream-purple-light mb-1 flex items-center gap-1.5">
+                  <Shield className="w-4 h-4" /> AI 모델 학습 미활용(Opt-out) 원칙 보장
+                </p>
+                <span>
+                  이용자가 입력한 꿈 내용(프롬프트)은 <strong>AI 모델의 재학습(Training / Fine-tuning) 목적으로 사용되지 않습니다.</strong> 
+                  Google Gemini 및 외부 LLM API 연동 시 이름, 전화번호, 이메일 등의 개인 식별 정보는 일체 포함되지 않으며 오직 꿈 해석 텍스트 생성을 위해서만 일회성으로 처리됩니다.
+                </span>
+              </div>
               <div className="bg-[#13131b] border border-white/10 rounded-xl p-4 space-y-2">
                 <div className="flex justify-between border-b border-white/5 pb-2 text-xs font-semibold text-slate-400">
                   <span>제공받는 자 (서비스)</span>

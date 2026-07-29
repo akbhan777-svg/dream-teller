@@ -1,0 +1,74 @@
+"use client";
+
+import { useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { XCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+
+interface FailClientProps {
+  code: string;
+  message: string;
+  orderId: string | null;
+}
+
+export default function FailClient({ code: initialCode, message: initialMessage, orderId: initialOrderId }: FailClientProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const code = initialCode || searchParams.get("code") || "UNKNOWN_ERROR";
+  const message = initialMessage || searchParams.get("message") || "결제 중 알 수 없는 오류가 발생했습니다.";
+  const orderId = initialOrderId || searchParams.get("orderId");
+
+  useEffect(() => {
+    // 백엔드에 실패 기록 전송
+    if (orderId) {
+      fetch("/api/payments/fail", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId, code, message }),
+      }).catch((err) => console.error("Failed to log payment failure", err));
+    }
+  }, [orderId, code, message]);
+
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center p-4">
+      <div className="bg-[#1c1c21]/80 backdrop-blur-2xl border border-red-500/20 p-8 rounded-2xl shadow-2xl max-w-md w-full text-center">
+        <XCircle className="w-16 h-16 text-red-500 mx-auto mb-6" />
+        <h2 className="text-2xl font-bold text-white mb-2">결제에 실패했습니다</h2>
+        
+        {message.includes("테스트 환경") || code === "INVALID_TEST_PAYMENT_METHOD" ? (
+          <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-5 mb-8 text-left space-y-2">
+            <p className="text-amber-300 font-bold text-sm">💡 토스페이먼츠 테스트 환경 안내</p>
+            <p className="text-slate-300 text-xs leading-relaxed">
+              페이코(PAYCO) 등 일부 간편결제는 토스페이먼츠 연동 테스트(개발자) 환경에서 지원되지 않는 결제수단입니다.
+            </p>
+            <p className="text-dream-purple-light text-xs font-semibold pt-1">
+              👉 [신용/체크카드], [토스페이], [카카오페이]를 선택하시면 즉시 테스트 결제가 완료됩니다.
+            </p>
+          </div>
+        ) : (
+          <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 mb-8">
+            <p className="text-red-400 font-medium">{message}</p>
+            <p className="text-red-500/60 text-sm mt-2">Error Code: {code}</p>
+          </div>
+        )}
+
+        <div className="space-y-3">
+          <Button 
+            onClick={() => router.back()}
+            className="w-full bg-dream-purple hover:bg-dream-purple-light text-white font-bold py-6 rounded-xl"
+          >
+            이전 화면으로 돌아가기
+          </Button>
+          <Button 
+            variant="outline"
+            onClick={() => router.push("/")}
+            className="w-full bg-transparent border-white/20 text-white hover:bg-white/10 py-6 rounded-xl"
+          >
+            홈으로 가기
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}

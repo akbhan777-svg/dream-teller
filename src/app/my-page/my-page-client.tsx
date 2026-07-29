@@ -5,11 +5,16 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
-import { Edit2, Check, X, Moon, CreditCard, History, LogOut, Award, CalendarDays, Sparkles, Loader2, ChevronRight } from "lucide-react";
+import { Edit2, Check, X, Moon, CreditCard, History, LogOut, Award, CalendarDays, Sparkles, Loader2, ChevronRight, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import dynamic from "next/dynamic";
 import { createClient } from "@/lib/supabase/client";
 
+const AdminVerifyModal = dynamic(
+  () => import("@/components/admin/admin-verify-modal").then((mod) => mod.AdminVerifyModal),
+  { ssr: false }
+);
 interface DreamHistoryItem {
   id: string;
   orderId: string;
@@ -36,9 +41,11 @@ export default function MyPageClient() {
   const [nickname, setNickname] = useState("로딩 중...");
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState("");
+  const [userRole, setUserRole] = useState<string>("user");
   const [remainingPasses, setRemainingPasses] = useState(0);
   const [email, setEmail] = useState("");
   const [loginProvider, setLoginProvider] = useState<"google" | "kakao">("google");
+  const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false);
   const [loadingProfile, setLoadingProfile] = useState(true);
   
   // DB에서 불러온 실제 데이터 State
@@ -76,12 +83,14 @@ export default function MyPageClient() {
           nickname?: string;
           email?: string;
           provider?: "google" | "kakao";
+          role?: string;
           remaining_interprets?: number;
         };
         setNickname(userProf.nickname || "사용자");
         setEditValue(userProf.nickname || "사용자");
         setEmail(userProf.email || "");
         setLoginProvider((userProf.provider as "google" | "kakao") || "google");
+        setUserRole(userProf.role || "user");
         setRemainingPasses(userProf.remaining_interprets || 0);
       }
 
@@ -193,7 +202,7 @@ export default function MyPageClient() {
     fetchProfile();
   }, [fetchProfile]);
 
-  // 분석 진행 중인 해몽이 존재하는 경우 3초 간격으로 실시간 상태 자동 폴링
+  // 분석 진행 중인 해몽이 존재하는 경우 3초 간격으로 실시간 상태 자동 폴링 및 Visibility API 연동
   useEffect(() => {
     const hasAnalyzing = dreamHistory.some((item) => item.status === "analyzing");
     if (!hasAnalyzing) return;
@@ -202,7 +211,18 @@ export default function MyPageClient() {
       fetchProfile();
     }, 3000);
 
-    return () => clearInterval(timer);
+    // 사용자가 다른 탭으로 갔다가 다시 돌아왔을 때 즉각적인 상태 갱신(Resume)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        fetchProfile();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
   }, [dreamHistory, fetchProfile]);
 
   // 캘린더 연동용 날짜 배열
@@ -277,6 +297,31 @@ export default function MyPageClient() {
   return (
     <div className="space-y-10">
       
+      {/* 관리자 전용 바로가기 배너 */}
+      {userRole === "admin" && (
+        <div className="p-5 rounded-3xl bg-gradient-to-r from-dream-purple/20 via-dream-blue/20 to-dream-pink/20 border border-dream-purple/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xl">
+          <div className="flex items-center gap-3.5">
+            <div className="w-11 h-11 rounded-2xl bg-dream-purple/20 border border-dream-purple/40 flex items-center justify-center shrink-0">
+              <ShieldCheck className="w-6 h-6 text-dream-purple-light" />
+            </div>
+            <div>
+              <h4 className="text-base font-bold text-white flex items-center gap-2">
+                <span>관리자(Admin) 권한 계정</span>
+                <span className="text-[10px] bg-dream-purple/30 text-dream-purple-light border border-dream-purple/40 px-2 py-0.5 rounded-full font-mono">ROLE: ADMIN</span>
+              </h4>
+              <p className="text-xs text-slate-300 mt-0.5">매출 대시보드, 전체 주문 내역 및 유저 관리 권한이 부여되어 있습니다.</p>
+            </div>
+          </div>
+          <Button
+            onClick={() => router.push("/admin")}
+            className="w-full sm:w-auto bg-gradient-to-r from-dream-purple to-dream-pink hover:opacity-90 text-white font-bold text-xs px-5 py-3 rounded-2xl shadow-lg cursor-pointer shrink-0 flex items-center justify-center gap-1.5"
+          >
+            <span>관리자 대시보드 바로가기</span>
+            <ChevronRight className="w-4 h-4" />
+          </Button>
+        </div>
+      )}
+
       {/* 1. 상단 프로필 및 잔여 횟수 카드 */}
       <section className="relative">
         <div className="absolute -inset-1 bg-gradient-to-r from-dream-purple via-dream-blue to-dream-pink rounded-3xl blur-xl opacity-30 pointer-events-none" />
@@ -359,17 +404,29 @@ export default function MyPageClient() {
             </div>
           </div>
 
-          {/* 잔여 횟수 박스 */}
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex items-center gap-4 shadow-[inset_0_0_20px_rgba(255,255,255,0.02)] md:min-w-[240px]">
-            <div className="p-3 bg-dream-pink/10 rounded-xl text-dream-pink-light">
-              <Award className="w-6 h-6" />
+          {/* 잔여 횟수 및 꿈해몽 바로가기 버튼 영역 */}
+          <div className="flex flex-col gap-3 md:min-w-[240px]">
+            {/* 잔여 횟수 박스 */}
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex items-center gap-4 shadow-[inset_0_0_20px_rgba(255,255,255,0.02)]">
+              <div className="p-3 bg-dream-pink/10 rounded-xl text-dream-pink-light">
+                <Award className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="text-xs text-slate-400">잔여 꿈 해몽 횟수</p>
+                <p className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-dream-pink to-dream-purple">
+                  {remainingPasses}회
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="text-xs text-slate-400">잔여 꿈 해몽 횟수</p>
-              <p className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-dream-pink to-dream-purple">
-                {remainingPasses}회
-              </p>
-            </div>
+
+            {/* 꿈해몽 바로가기 버튼 */}
+            <Link href="/dream-teller" className="w-full">
+              <Button className="w-full bg-gradient-to-r from-dream-purple to-dream-pink hover:opacity-90 text-white font-bold text-xs py-3.5 rounded-2xl shadow-[0_0_20px_rgba(139,92,246,0.25)] flex items-center justify-center gap-1.5 cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98]">
+                <Sparkles className="w-4 h-4 text-dream-pink-light animate-pulse" />
+                <span>꿈해몽 신청하기 (바로가기)</span>
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            </Link>
           </div>
         </div>
       </section>
@@ -653,6 +710,11 @@ export default function MyPageClient() {
         </div>
       )}
 
+      {/* 관리자 본인 인증 모달 */}
+      <AdminVerifyModal
+        isOpen={isVerifyModalOpen}
+        onClose={() => setIsVerifyModalOpen(false)}
+      />
     </div>
   );
 }

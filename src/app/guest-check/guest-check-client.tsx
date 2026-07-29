@@ -114,7 +114,7 @@ export default function GuestCheckClient() {
     fetchGuestOrders();
   }, [fetchGuestOrders]);
 
-  // 분석 진행 중인 주문이 존재하는 경우 3초마다 자동으로 실시간 상태 폴링
+  // 분석 진행 중인 주문이 존재하는 경우 3초마다 자동으로 실시간 상태 폴링 및 Visibility API 연동
   useEffect(() => {
     const hasAnalyzing = orders.some((ord) => ord.status === "분석 진행 중");
     if (!hasAnalyzing) return;
@@ -123,7 +123,18 @@ export default function GuestCheckClient() {
       fetchGuestOrders();
     }, 3000);
 
-    return () => clearInterval(timer);
+    // 사용자가 다른 탭으로 갔다가 다시 돌아왔을 때 즉각적인 상태 갱신(Resume)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        fetchGuestOrders();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
   }, [orders, fetchGuestOrders]);
 
   // RLS 우회 및 객체/배열 양방향 스키마 썸네일 누락 원천 방어 헬퍼
@@ -182,15 +193,26 @@ export default function GuestCheckClient() {
           </div>
         </div>
 
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleLogout}
-          className="border-white/10 bg-black/20 text-slate-300 hover:text-white hover:bg-white/5 cursor-pointer self-start md:self-auto"
-        >
-          <LogOut className="w-4 h-4 mr-2" />
-          조회 종료
-        </Button>
+        <div className="flex flex-col items-start md:items-end gap-2.5">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleLogout}
+            className="border-white/10 bg-black/20 text-slate-300 hover:text-white hover:bg-white/5 cursor-pointer self-start md:self-auto"
+          >
+            <LogOut className="w-4 h-4 mr-2" />
+            조회 종료
+          </Button>
+
+          {/* 꿈해몽 바로가기 버튼 */}
+          <Link href="/dream-teller" className="w-full sm:w-auto">
+            <Button className="w-full sm:w-auto bg-gradient-to-r from-dream-purple to-dream-pink hover:opacity-90 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-[0_0_20px_rgba(139,92,246,0.25)] flex items-center justify-center gap-1.5 cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98]">
+              <Sparkles className="w-3.5 h-3.5 text-dream-pink-light animate-pulse" />
+              <span>꿈해몽 신청하기 (바로가기)</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Main Order List Section */}
@@ -361,7 +383,7 @@ export default function GuestCheckClient() {
                 다회권 할인 & AI 이미지 무료 제공
               </h4>
               <p className="text-xs text-slate-400 leading-relaxed mt-1.5">
-                1회 해몽 대비 최대 40% 단가 할인 혜택과 함께, 무의식의 억압된 상징을 아트로 시각화하는 프리미엄 AI 이미지 생성 기능을 무료로 제공받으실 수 있습니다.
+                1회 해몽 대비 최대 32% 단가 할인 혜택과 함께, 무의식의 억압된 상징을 아트로 시각화하는 프리미엄 AI 이미지 생성 기능을 무료로 제공받으실 수 있습니다.
               </p>
             </div>
           </div>

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import bcrypt from "bcryptjs";
 
 export async function POST(request: Request) {
   try {
@@ -12,7 +13,7 @@ export async function POST(request: Request) {
     }
 
     // 1. 비회원 결제 완료된 주문 및 dream_results 조인 조회 (Admin 권한 RLS 우회)
-    const { data: orders, error } = await (supabaseAdmin.from("orders") as any)
+    const { data: rawOrders, error } = await (supabaseAdmin.from("orders") as any)
       .select(`
         id,
         order_number,
@@ -23,6 +24,7 @@ export async function POST(request: Request) {
         includes_image,
         order_type,
         created_at,
+        guest_password,
         dream_results (
           id,
           analysis_status,
@@ -31,7 +33,6 @@ export async function POST(request: Request) {
       `)
       .eq("payment_status", "paid")
       .eq("guest_phone", phone)
-      .eq("guest_password", password)
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -39,9 +40,36 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "주문 조회 실패" }, { status: 500 });
     }
 
+    if (!rawOrders || rawOrders.length === 0) {
+      return NextResponse.json({ success: true, orders: [] });
+    }
+
+    // 2. Bcrypt 비밀번호 검증 및 일치하는 주문만 필터링
+    const orders = [];
+    for (const order of rawOrders) {
+      if (order.guest_password) {
+        // 기존 평문 비밀번호 호환성을 위해 bcrypt 해시($2)로 시작하는지 체크
+        const isHashed = order.guest_password.startsWith("$2");
+        let isMatch = false;
+        
+        if (isHashed) {
+          isMatch = await bcrypt.compare(password, order.guest_password);
+        } else {
+          // 런칭 전 기존 평문 데이터 비교 (호환성 유지)
+          isMatch = order.guest_password === password;
+        }
+
+        if (isMatch) {
+          // 클라이언트 반환 시 비밀번호 필드 제거
+          const { guest_password, ...safeOrder } = order;
+          orders.push(safeOrder);
+        }
+      }
+    }
+
     return NextResponse.json({
       success: true,
-      orders: orders || []
+      orders: orders
     });
 
   } catch (error: any) {
