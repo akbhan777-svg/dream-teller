@@ -1,91 +1,102 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-import { sanitizeText } from "@/lib/utils/sanitize";
-import { getIpAndUserAgent } from "@/lib/utils/request-info";
+import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { sendTelegramMessage } from "@/lib/telegram";
-import * as bcrypt from "bcryptjs";
+import bcrypt from "bcryptjs";
 
-// Supabase 관리자 권한 클라이언트 (백엔드 전용)
-const supabaseAdminUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-if (!supabaseServiceKey) {
-  throw new Error("SUPABASE_SERVICE_ROLE_KEY is not defined in environment variables");
-}
-
-const supabaseAdmin = createClient(supabaseAdminUrl, supabaseServiceKey, {
-  auth: { autoRefreshToken: false, persistSession: false }
-});
-
-const PRICING = {
-  single: { price: 2000, name: "1회 해석권 (단건 결제)", includesImage: false },
-  pass5: { price: 5950, name: "5회 해석권 (다회권)", includesImage: true }, // 2000 * 5 = 10000 -> 5950 (40.5% 할인, 이미지 포함)
-  pass10: { price: 8330, name: "10회 해석권 (다회권)", includesImage: true }, // 2000 * 10 = 20000 -> 8330 (58.3% 할인, 이미지 포함)
-  singleImage: { price: 2500, name: "1회 해석권 (이미지 포함)", includesImage: true }, // (이전 사용되던 옵션 유지용)
-  use_pass: { price: 0, name: "잔여 횟수 사용", includesImage: true }, // 이용권 차감 
-};
-
-// 할인 이벤트 (비회원 1회권)
-const DISCOUNT_PRICING = {
-  singleImage: {
-    price: 1190, // 원래 2500원 -> 1190원 할인
-  }
-};
+const sanitizeText = (text: string) => text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 
 export async function POST(request: Request) {
   try {
-    const { amount, plan, expertField, includesImage, dreamContent, guestPhone, guestPassword } = await request.json();
+    const supabaseAdmin = createAdminClient();
 
-    // 토큰 기반 인증 확인
-    const authHeader = request.headers.get("Authorization");
-    let user = null;
-    
-    if (authHeader && authHeader.startsWith("Bearer ")) {
-      const token = authHeader.split(" ")[1];
-      const { data, error } = await supabaseAdmin.auth.getUser(token);
-      if (data?.user && !error) {
-        user = data.user;
-      }
+    // 비회원 쿠키 없는 상태에서 auth.getUser() 예외 안전 방어
+    let user: any = null;
+    try {
+      const supabase = await createClient();
+      const { data } = await supabase.auth.getUser();
+      user = data?.user || null;
+    } catch {
+      user = null;
     }
 
-    const userId = user ? user.id : null;
-    let expectedAmount = 0;
-    let orderType = plan || "single";
-    let isImageIncluded = !!includesImage;
+    const body = await request.json();
+    const { amount, plan, expertField, dreamContent, includesImage, guestPhone, guestPassword } = body;
+    const isImageIncluded = includesImage === true || includesImage === "true" || includesImage === undefined;
 
-    // 1. 결제 금액(expectedAmount) 및 옵션 검증
-    if (plan === "pass5") {
-      expectedAmount = PRICING.pass5.price;
-      isImageIncluded = true;
-    } else if (plan === "pass10") {
-      expectedAmount = PRICING.pass10.price;
-      isImageIncluded = true;
-    } else if (plan === "use_pass") {
-      expectedAmount = 0;
-      isImageIncluded = true;
-    } else {
-      // single 또는 singleImage 인 경우 (비회원 1190원 할인 로직 적용)
-      if (!user) { // 비회원인 경우
-        expectedAmount = DISCOUNT_PRICING.singleImage.price;
-        isImageIncluded = true; // 이벤트로 항상 포함
-        orderType = "singleImage"; // 이름도 변경
+    // 유저 ID 결정 (로그인 유저 또는 비회원 시스템 고정 UUID)
+    const GUEST_USER_ID = "00000000-0000-0000-0000-000000000000";
+    const userId = user ? user.id : GUEST_USER_ID;
+
+    // 0. public.users 레코드 존재 여부 확인 및 자동 생성 (FKEY constraint 에러 방지)
+    try {
+      if (userId === GUEST_USER_ID) {
+        // 비회원 계정 존재 여부 확인 후 생성
+        const { data: existingGuest } = await (supabaseAdmin.from("users") as any)
+          .select("id")
+          .eq("id", GUEST_USER_ID)
+          .maybeSingle();
+
+        if (!existingGuest) {
+          await (supabaseAdmin.from("users") as any).upsert({
+            id: GUEST_USER_ID,
+            email: "guest@dreamteller.com",
+            nickname: "비회원",
+            provider: "guest",
+            role: "member", // Role member로 통일
+            remaining_interprets: 0,
+          });
+        }
       } else {
-        // 회원의 단건 결제
-        if (includesImage) {
-          expectedAmount = PRICING.singleImage.price;
-          orderType = "singleImage";
-          isImageIncluded = true;
-        } else {
-          expectedAmount = PRICING.single.price;
-          orderType = "single";
-          isImageIncluded = false;
+        // 회원 계정 upsert
+        const { data: existingUser } = await (supabaseAdmin.from("users") as any)
+          .select("id")
+          .eq("id", userId)
+          .maybeSingle();
+
+        if (!existingUser) {
+          await (supabaseAdmin.from("users") as any).upsert({
+            id: userId,
+            email: user?.email || "guest@dreamteller.com",
+            nickname: user?.user_metadata?.name || user?.user_metadata?.full_name || "회원",
+            provider: user?.app_metadata?.provider || "guest",
+            role: "member",
+            remaining_interprets: 0,
+          });
         }
       }
+    } catch (e: any) {
+      console.warn("User record upsert warn:", e?.message);
     }
 
-    // 클라이언트에서 보낸 amount가 expectedAmount와 다를 경우 경고 (하지만 서버에서 강제 보정)
-    // 클라이언트에서는 amount를 0으로 보냈는데 서버가 1190원으로 예상하면 문제가 되므로, 
-    // Toss 측에 넘길 최종 결제 금액은 expectedAmount를 최우선으로 합니다.
+    // 1. 가격 및 상품 검증
+    let expectedAmount = 0;
+    let orderType = "single_interpretation";
+    
+    if (plan === "single") {
+      expectedAmount = isImageIncluded ? 1190 : 990;
+      orderType = "single_interpretation";
+    } else if (plan === "pass5") {
+      if (!user) {
+        return NextResponse.json({ success: false, error: "비회원은 할인 다회권을 결제할 수 없습니다. 회원가입 후 이용해 주세요." }, { status: 403 });
+      }
+      expectedAmount = 4760;
+      orderType = "pass_charge_5";
+    } else if (plan === "pass10") {
+      if (!user) {
+        return NextResponse.json({ success: false, error: "비회원은 할인 다회권을 결제할 수 없습니다. 회원가입 후 이용해 주세요." }, { status: 403 });
+      }
+      expectedAmount = 8330;
+      orderType = "pass_charge_10";
+    } else if (plan === "use_pass") {
+      expectedAmount = 0;
+      orderType = "pass_use";
+    } else {
+      return NextResponse.json({ success: false, error: "Invalid plan" }, { status: 400 });
+    }
+
+    // 서버 단독 정찰가(expectedAmount)를 단일 진실의 출처(Single Source of Truth)로 사용
+    // 모바일 브라우저 캐시 등으로 인해 클라이언트에서 구 금액(예: 2000원)을 전송하더라도 서버의 정찰가(expectedAmount)로 자동 보정
     if (amount !== undefined && Number(amount) !== expectedAmount) {
       console.warn(`[Orders API] Client sent amount (${amount}) mismatch with server expected (${expectedAmount}). Overriding with expectedAmount (${expectedAmount}).`);
     }

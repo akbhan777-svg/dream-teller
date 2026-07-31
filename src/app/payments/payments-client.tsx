@@ -1,76 +1,51 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
 import { useSearchParams } from "next/navigation";
-import { loadTossPayments, TossPaymentsPaymentWidget } from "@tosspayments/payment-widget-sdk";
+import { useEffect, useState, useRef } from "react";
+import PaymentWidget from "@/components/payments/payment-widget";
 import { Receipt } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import { cn } from "@/lib/utils";
 
 export default function PaymentsClient() {
   const searchParams = useSearchParams();
-  const amount = searchParams.get("amount") || "2000";
-  const planParam = searchParams.get("plan") || "single";
-  const expertParam = searchParams.get("expert") || "freud";
-  const isLoggedInParam = searchParams.get("isLoggedIn") === "true";
-  const includesImageParam = searchParams.get("includesImage") === "true";
+  const [orderId, setOrderId] = useState("");
+  const [confirmedAmount, setConfirmedAmount] = useState<number | null>(null);
 
-  const [paymentWidget, setPaymentWidget] = useState<TossPaymentsPaymentWidget | null>(null);
-  const [orderId, setOrderId] = useState<string>("");
-  const [customerKey, setCustomerKey] = useState<string>("ANONYMOUS");
-  const [orderErrorMsg, setOrderErrorMsg] = useState<string>("");
-  const [isLoading, setIsLoading] = useState(true);
-  const [confirmedAmount, setConfirmedAmount] = useState<number>(Number(amount));
+  const planParam = searchParams.get("plan");
+  const expertParam = searchParams.get("expert");
+  const amountParam = searchParams.get("amount");
+  const includesImageParam = searchParams.get("includesImage") !== "false"; // 기본값 true
+
+  let fallbackAmount = amountParam ? Number(amountParam) : (includesImageParam ? 1190 : 990);
+  if (planParam === "pass5") fallbackAmount = 4760;
+  else if (planParam === "pass10") fallbackAmount = 8330;
+  else if (planParam === "use_pass") fallbackAmount = 0;
+
+  const amount = confirmedAmount !== null ? confirmedAmount : fallbackAmount;
   
-  const paymentMethodsWidgetRef = useRef<any>(null);
+  let planName = includesImageParam ? "1회 해석권 (단판 + AI 이미지 포함)" : "1회 해석권 (단판)";
+  if (planParam === "pass5") planName = "5회 해석권 (다회권)";
+  else if (planParam === "pass10") planName = "10회 해석권 (다회권)";
+  else if (planParam === "use_pass") planName = "보유 횟수 사용";
+
+  // 전문가 이름 매핑
+  const expertMap: Record<string, string> = {
+    freud: "프로이트",
+    jung: "칼 융",
+    neuroscience: "신경과학",
+    gestalt: "게슈탈트"
+  };
+  const expertName = expertParam && expertMap[expertParam] ? expertMap[expertParam] : "전문가";
+  const orderName = `[Dream Teller] ${expertName} 관점 - ${planName}`;
+
+  const [isLoading, setIsLoading] = useState(true);
+  const [orderErrorMsg, setOrderErrorMsg] = useState<string>("");
   const isFetchedRef = useRef(false);
-
-  const PRICING = {
-    single: { price: 2000, name: "1회 해석권 (단건 결제)", includesImage: false },
-    pass5: { price: 5950, name: "5회 해석권 (다회권)", includesImage: true }, 
-    pass10: { price: 8330, name: "10회 해석권 (다회권)", includesImage: true }, 
-    singleImage: { price: 2500, name: "1회 해석권 (이미지 포함)", includesImage: true },
-    use_pass: { price: 0, name: "잔여 횟수 사용", includesImage: true },
-  };
-
-  const DISCOUNT_PRICING = {
-    singleImage: {
-      price: 1190, 
-    }
-  };
-
-  let expectedAmount = 0;
-  let orderName = "";
-
-  if (planParam === "pass5") {
-    expectedAmount = PRICING.pass5.price;
-    orderName = PRICING.pass5.name;
-  } else if (planParam === "pass10") {
-    expectedAmount = PRICING.pass10.price;
-    orderName = PRICING.pass10.name;
-  } else if (planParam === "use_pass") {
-    expectedAmount = 0;
-    orderName = PRICING.use_pass.name;
-  } else {
-    if (!isLoggedInParam) {
-      expectedAmount = DISCOUNT_PRICING.singleImage.price;
-      orderName = "1회 해석권 (비회원 할인/이미지포함)";
-    } else {
-      if (includesImageParam) {
-        expectedAmount = PRICING.singleImage.price;
-        orderName = PRICING.singleImage.name;
-      } else {
-        expectedAmount = PRICING.single.price;
-        orderName = PRICING.single.name;
-      }
-    }
-  }
 
   useEffect(() => {
     let isMounted = true;
-    
-    if (isFetchedRef.current) return;
-    isFetchedRef.current = true;
 
+    // 다회권 차감 플로우인 경우 주문서를 미리 생성하지 않음 (버튼 클릭 시 생성)
     if (planParam === "use_pass") {
       setIsLoading(false);
       return;
@@ -112,8 +87,6 @@ export default function PaymentsClient() {
             if (typeof window !== "undefined") {
               sessionStorage.setItem("activeOrderId", data.orderId);
             }
-            const keyToUse = (!data.customerKey || data.customerKey === "00000000-0000-0000-0000-000000000000") ? "ANONYMOUS" : data.customerKey;
-            setCustomerKey(keyToUse); 
           } else {
             console.error("Order creation failed:", data.error);
             setOrderErrorMsg(data.error || "주문서 생성에 실패했습니다.");
@@ -274,35 +247,26 @@ export default function PaymentsClient() {
           {/* Dashed divider */}
           <div className="border-t-2 border-dashed border-white/10 my-8 w-full" />
 
-          {/* Toss Payment UI Mount Point */}
-          <div id="payment-widget" className="bg-white/5 rounded-xl p-2 min-h-[300px]" />
-          <div id="agreement" className="bg-white/5 rounded-xl p-2 mt-4" />
+          {/* Total Amount */}
+          <div className="flex justify-between items-end mb-8">
+            <span className="text-slate-400">총 결제 금액</span>
+            <div className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-dream-pink to-dream-purple">
+              {amount.toLocaleString()}<span className="text-lg text-slate-300 ml-1 font-normal">원</span>
+            </div>
+          </div>
 
-          <button
-            onClick={async () => {
-              if (!paymentWidget) {
-                console.error("Payment widget not initialized");
-                return;
-              }
-              const baseUrl = window.location.origin;
-              try {
-                await paymentWidget.requestPayment({
-                  orderId,
-                  orderName,
-                  successUrl: `${baseUrl}/payments/success`,
-                  failUrl: `${baseUrl}/payments/fail`,
-                  customerEmail: "customer@example.com",
-                  customerName: "회원",
-                });
-              } catch (err) {
-                console.error("결제 요청 실패:", err);
-              }
-            }}
-            className="w-full bg-gradient-to-r from-dream-purple via-dream-blue to-dream-pink text-white font-bold py-5 rounded-xl mt-8 shadow-[0_0_20px_rgba(139,92,246,0.3)] hover:opacity-90 hover:scale-[1.02] transition-all text-lg"
-          >
-            {confirmedAmount.toLocaleString()}원 결제하기
-          </button>
+          {/* Toss Payments Widget Container */}
+          <div className="p-2 sm:p-3 rounded-2xl bg-[#15151c] border border-white/10 min-h-[380px] touch-auto">
+            <PaymentWidget 
+              amount={amount} 
+              orderId={orderId} 
+              orderName={orderName} 
+            />
+          </div>
         </div>
+        
+        {/* Bottom Zig-zag pattern simulation */}
+        <div className="w-full h-3 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMCIgaGVpZ2h0PSIxMCI+PHBvbHlnb24gcG9pbnRzPSIwLDEwIDEwLDAgMjAsMTAgMjAsMCAwLDAiIGZpbGw9InJnYmEoMTUsMTUsMTksMC41KSIvPjwvc3ZnPg==')] opacity-50 rotate-180" />
       </div>
     </div>
   );
