@@ -95,9 +95,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: "Invalid plan" }, { status: 400 });
     }
 
-    const numAmount = Number(amount);
-    if (isNaN(numAmount) || numAmount !== expectedAmount) {
-      return NextResponse.json({ success: false, error: `Amount mismatch: received ${amount}, expected ${expectedAmount}` }, { status: 400 });
+    // 서버 단독 정찰가(expectedAmount)를 단일 진실의 출처(Single Source of Truth)로 사용
+    // 모바일 브라우저 캐시 등으로 인해 클라이언트에서 구 금액(예: 2000원)을 전송하더라도 서버의 정찰가(expectedAmount)로 자동 보정
+    if (amount !== undefined && Number(amount) !== expectedAmount) {
+      console.warn(`[Orders API] Client sent amount (${amount}) mismatch with server expected (${expectedAmount}). Overriding with expectedAmount (${expectedAmount}).`);
     }
 
     // 주문 번호 생성 (예: DT_timestamp_random)
@@ -203,7 +204,7 @@ export async function POST(request: Request) {
       .insert({
         user_id: userId,
         order_number: orderNumber,
-        total_amount: numAmount,
+        total_amount: expectedAmount,
         order_type: orderType,
         payment_status: "pending",
         expert_field: expertField,
@@ -223,7 +224,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       orderId: orderNumber,
-      amount: numAmount,
+      amount: expectedAmount,
       customerKey: userId,
     });
 
