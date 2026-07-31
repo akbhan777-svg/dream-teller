@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { sendTelegramMessage } from "@/lib/telegram";
+import { validateAndSanitizeDreamPrompt } from "@/lib/security-filter";
 
 export const runtime = "edge"; // Vercel Edge Function으로 오프로딩하여 서버리스 타임아웃(504) 원천 방어
 export const maxDuration = 60; // Edge 환경에서의 최대 허용 대기 시간(60초) 명시적 설정
@@ -56,7 +57,6 @@ export async function POST(request: Request) {
     }
 
     // 1-1. 서버사이드 보안 및 유해 프롬프트 인젝션 검증 (정보통신망법 준수)
-    const { validateAndSanitizeDreamPrompt } = await import("@/lib/security-filter");
     const securityCheck = validateAndSanitizeDreamPrompt(order.dream_content || "");
     if (!securityCheck.isValid) {
       console.warn(`[Security Alert] Order ${order.order_number} blocked due to prompt injection: ${securityCheck.error}`);

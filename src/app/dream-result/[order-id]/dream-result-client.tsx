@@ -1,62 +1,60 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Quote, Sparkles, Share2, Download, Calendar as CalendarIcon, Link as LinkIcon, CheckCircle2, ShieldAlert, Loader2, Brain, Moon, Clock, ArrowRight, RefreshCw } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { 
+  Sparkles, 
+  Download, 
+  Share2, 
+  CheckCircle2, 
+  RefreshCcw,
+  Clock,
+  Brain,
+  Quote,
+  Eye,
+  EyeOff,
+  ShieldAlert
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase/client";
-import { fetchOrderAndResultBypass, toggleDreamPublicAction } from "@/app/actions/order-action";
-
-// Kakao SDK 타입 선언
-declare global {
-  interface Window {
-    Kakao: any;
-  }
-}
+import ReactMarkdown from "react-markdown";
+import { toggleDreamPublicAction } from "@/app/actions/dream-action";
 
 interface DreamResultClientProps {
   orderId: string;
   initialOrderData: any;
   initialResultData: any;
-  initialIsForbidden: boolean;
-  unauthorizedQuery: boolean;
 }
 
-export default function DreamResultClient({
-  orderId,
-  initialOrderData,
-  initialResultData,
-  initialIsForbidden,
-  unauthorizedQuery,
-}: DreamResultClientProps) {
+export default function DreamResultClient({ orderId, initialOrderData, initialResultData }: DreamResultClientProps) {
   const router = useRouter();
   const supabase = createClient();
-
-  // State
+  
   const [orderData, setOrderData] = useState<any>(initialOrderData);
   const [resultData, setResultData] = useState<any>(initialResultData);
-  const [isForbidden, setIsForbidden] = useState(initialIsForbidden || unauthorizedQuery);
-  
-  const [isPublic, setIsPublic] = useState(Boolean(initialResultData?.is_public));
   const [isTogglingPublic, setIsTogglingPublic] = useState(false);
-  const [isCopied, setIsCopied] = useState(false);
-  const [analyzingStep, setAnalyzingStep] = useState(0);
-  const [imageRetryCount, setImageRetryCount] = useState(0);
+  const [isPublic, setIsPublic] = useState<boolean>(initialResultData?.is_public || false);
   const [isTriggeringAi, setIsTriggeringAi] = useState(false);
-  const aiTriggeredRef = useRef(false);
+  
+  // 에러 또는 권한 없음 상태 관리
+  const [isForbidden, setIsForbidden] = useState(false);
 
-  // 로딩 멘트 순환 목록
+  // 로딩 애니메이션 텍스트 상태
+  const [analyzingStep, setAnalyzingStep] = useState(0);
   const analyzingMessages = [
-    "어젯밤 당신이 꾸었던 꿈의 심리 기제를 파악하는 중입니다...",
-    "선택하신 전문 관점으로 무의식의 억압된 상징을 정밀 해독 중입니다...",
-    "AI 시각화 이미지 및 무의식 심층 해몽 리포트를 생성 중입니다...",
-    "거의 다 완성되었습니다! 영혼의 문맥을 가다듬는 중입니다..."
+    "꿈의 파편들을 수집하고 있습니다...",
+    "무의식의 심연을 탐색하는 중입니다...",
+    "핵심 상징과 감정을 추출하고 있습니다...",
+    "전문 심리학적 관점으로 해독하는 중...",
+    "거의 다 되었습니다. 결과를 정리하고 있습니다..."
   ];
 
-  // AI 분석 트리거 함수 (클라이언트 단독 보완용)
+  // AI 생성 API를 수동으로 호출하는 함수 (최초 진입 시 자동 호출, 또는 오류 발생 시 재시도)
   const triggerAiGeneration = async () => {
     setIsTriggeringAi(true);
     try {
@@ -65,67 +63,75 @@ export default function DreamResultClient({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ orderId }),
       });
-    } catch (e) {
-      console.error("Client AI trigger error:", e);
+      // 호출 성공 시 별도 처리는 하지 않음. 아래 polling(fetchOrderAndResult)가 상태를 갱신해줌.
+    } catch (err) {
+      console.error("AI Trigger Request Failed:", err);
     } finally {
       setIsTriggeringAi(false);
     }
   };
 
-  // 1. DB 실시간 데이터 조회 및 5초 폴링 (분석 진행 중일 때)
   useEffect(() => {
-    // 이미 완료되었거나 권한이 없으면 폴링 불필요
-    if (isForbidden || (resultData && resultData.analysis_status === "completed")) {
-      return;
-    }
-
-    // 클라이언트 보완책: 브라우저에 접속 시 해몽이 아직 완료되지 않았으면 즉시 AI 파이프라인 트리거 (Vercel 서벌리스 프로세스 종료 대비)
-    if (!aiTriggeredRef.current) {
-      aiTriggeredRef.current = true;
+    // 자동 AI 트리거: 결제 직후 진입 시 (resultData가 없거나, 아직 생성되지 않았을 경우)
+    if (!resultData || (resultData.analysis_status !== "completed" && resultData.analysis_status !== "failed")) {
       triggerAiGeneration();
     }
+  }, []); // orderId 변경은 발생하지 않으므로 빈 배열
+
+  useEffect(() => {
+    // 애니메이션 텍스트 변경 타이머
+    const messageInterval = setInterval(() => {
+      setAnalyzingStep((prev) => (prev + 1) % analyzingMessages.length);
+    }, 4000);
+
+    return () => clearInterval(messageInterval);
+  }, []);
+
+  const fetchOrderAndResult = async () => {
+    try {
+      // API Route를 통해 어드민 권한으로 조회 (RLS 우회)
+      const res = await fetch(`/api/orders?order_number=${orderId}`);
+      if (!res.ok) {
+        if (res.status === 403) {
+          setIsForbidden(true);
+        }
+        return;
+      }
+      const data = await res.json();
+      
+      if (data.order) {
+        setOrderData(data.order);
+        if (data.order.dream_results) {
+          const resObj = Array.isArray(data.order.dream_results) 
+            ? data.order.dream_results[0] 
+            : data.order.dream_results;
+          setResultData(resObj);
+          if (resObj?.is_public !== undefined) {
+            setIsPublic(resObj.is_public);
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch order updates:", err);
+    }
+  };
+
+  useEffect(() => {
+    if (isForbidden) return;
 
     let intervalId: NodeJS.Timeout;
 
-    const fetchOrderAndResult = async () => {
-      try {
-        // orderId가 존재하므로 userId 폴백 없이 조회 가능 (불필요한 getUser 네트워크 요청 제거하여 언마운트 시 fetch 에러 방지)
-        const { order: serverOrder } = await fetchOrderAndResultBypass(orderId, undefined);
-
-        if (!serverOrder) {
-          setIsForbidden(true);
-          return;
-        }
-
-        if (unauthorizedQuery) {
-          setIsForbidden(true);
-          return;
-        }
-
-        setIsForbidden(false);
-        setOrderData(serverOrder);
-        const resultObj = Array.isArray(serverOrder.dream_results) ? serverOrder.dream_results[0] : serverOrder.dream_results;
-        setResultData(resultObj);
-
-        if (resultObj) {
-          setIsPublic(Boolean(resultObj.is_public));
-        }
-
-        // 분석이 완료되었으면 폴링 중단
-        if (resultObj && resultObj.analysis_status === "completed") {
-          if (intervalId) clearInterval(intervalId);
-        }
-      } catch (err) {
-        console.error("해몽 데이터 조회 에러:", err);
-      }
-    };
+    if (resultData && resultData.analysis_status === "completed") {
+      // 완료 시 폴링 중단
+      return;
+    }
 
     // 분석 진행 중이면 5초마다 폴링으로 상태 감지 및 Visibility API 연동
     intervalId = setInterval(() => {
       fetchOrderAndResult();
     }, 5000);
 
-    // 사용자가 다른 탭으로 갔다가 다시 돌아왔을 때 즉각적인 상태 갱신(Resume)
+    // 브라우저 탭 활성화 시 즉시 체크
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
         fetchOrderAndResult();
@@ -137,114 +143,73 @@ export default function DreamResultClient({
       if (intervalId) clearInterval(intervalId);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [orderId, supabase, unauthorizedQuery, resultData?.analysis_status, isForbidden]);
+  }, [orderId, resultData?.analysis_status, isForbidden]);
 
-  // 로딩 멘트 순환 롤링 타이머
-  useEffect(() => {
-    if (resultData?.analysis_status === "completed") return;
+  // Kakao Share
+  const handleShare = () => {
+    if (!resultData || resultData.analysis_status !== "completed") return;
 
-    const timer = setInterval(() => {
-      setAnalyzingStep((prev) => (prev + 1) % analyzingMessages.length);
-    }, 4000);
-
-    return () => clearInterval(timer);
-  }, [resultData?.analysis_status]);
-
-  // 카카오 SDK 초기화
-  useEffect(() => {
-    if (typeof window !== "undefined" && window.Kakao && !window.Kakao.isInitialized()) {
-      const kakaoKey = process.env.NEXT_PUBLIC_KAKAO_JAVASCRIPT_KEY || "dummy_kakao_key";
-      try {
-        window.Kakao.init(kakaoKey);
-      } catch (e) {
-        console.warn("Kakao SDK Init Warn:", e);
+    const shareUrl = `${window.location.origin}/dream-result/${orderId}`;
+    
+    // 카카오톡 공유 기능 연동 (카카오 SDK가 로드되어 있다고 가정)
+    if (typeof window !== "undefined" && (window as any).Kakao) {
+      const kakao = (window as any).Kakao;
+      if (!kakao.isInitialized()) {
+        kakao.init(process.env.NEXT_PUBLIC_KAKAO_JS_KEY);
       }
-    }
-  }, []);
-
-  const handleCopyLink = () => {
-    if (typeof window !== "undefined") {
-      navigator.clipboard.writeText(window.location.href);
-      setIsCopied(true);
-      setTimeout(() => setIsCopied(false), 3000);
-    }
-  };
-
-  const handleShareKakao = () => {
-    if (typeof window !== "undefined") {
-      if (window.Kakao && window.Kakao.isInitialized()) {
-        try {
-          window.Kakao.Share.sendDefault({
-            objectType: "feed",
-            content: {
-              title: orderData?.expert_field ? `${orderData.expert_field} 관점 꿈 해몽 결과` : "AI 꿈 해몽 분석 결과",
-              description: orderData?.dream_content ? orderData.dream_content.slice(0, 50) + "..." : "내 꿈의 숨겨진 무의식 상징을 확인해 보세요.",
-              imageUrl: resultData?.image_url || "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800",
-              link: {
-                mobileWebUrl: window.location.href,
-                webUrl: window.location.href,
-              },
+      
+      kakao.Share.sendDefault({
+        objectType: 'feed',
+        content: {
+          title: '내 무의식이 보내는 메시지 🌙',
+          description: resultData.analysis_text?.substring(0, 50) + '...',
+          imageUrl: resultData.image_url || 'https://dream-teller.com/og-image.jpg',
+          link: {
+            mobileWebUrl: shareUrl,
+            webUrl: shareUrl,
+          },
+        },
+        buttons: [
+          {
+            title: '해몽 결과 보기',
+            link: {
+              mobileWebUrl: shareUrl,
+              webUrl: shareUrl,
             },
-            buttons: [
-              {
-                title: "해몽 리포트 보기",
-                link: {
-                  mobileWebUrl: window.location.href,
-                  webUrl: window.location.href,
-                },
-              },
-            ],
-          });
-        } catch (e) {
-          console.error("Kakao Share Error:", e);
-          alert("카카오톡 공유 호출 중 오류가 발생했습니다. 링크 복사 기능을 이용해 주세요.");
-        }
+          },
+        ],
+      });
+    } else {
+      // Web Share API fallback
+      if (navigator.share) {
+        navigator.share({
+          title: 'Dream Teller 해몽 결과',
+          text: '나의 꿈 해몽 결과를 확인해보세요!',
+          url: shareUrl,
+        }).catch(console.error);
       } else {
-        alert("링크 복사 기능을 이용해 주세요.");
+        // 클립보드 복사 fallback
+        navigator.clipboard.writeText(shareUrl).then(() => {
+          alert('결과 링크가 클립보드에 복사되었습니다!');
+        });
       }
     }
   };
 
   const handleDownloadImage = async () => {
     if (!resultData?.image_url) return;
+    
     try {
-      const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(resultData.image_url)}`;
-      const response = await fetch(proxyUrl);
-      
-      if (!response.ok) throw new Error("Proxy download failed");
-
+      const response = await fetch(resultData.image_url);
       const blob = await response.blob();
-      
-      const img = new window.Image();
-      const objectUrl = URL.createObjectURL(blob);
-      
-      img.onload = () => {
-        const canvas = document.createElement("canvas");
-        const scaleFactor = 2;
-        canvas.width = img.width * scaleFactor;
-        canvas.height = img.height * scaleFactor;
-        
-        const ctx = canvas.getContext("2d");
-        if (ctx) {
-          ctx.imageSmoothingEnabled = true;
-          ctx.imageSmoothingQuality = "high";
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-          
-          canvas.toBlob((pngBlob) => {
-            if (!pngBlob) return;
-            const downloadUrl = URL.createObjectURL(pngBlob);
-            const link = document.createElement("a");
-            link.href = downloadUrl;
-            link.download = `dream_art_${orderId.slice(-6)}_hd.png`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(downloadUrl);
-            URL.revokeObjectURL(objectUrl);
-          }, "image/png", 1.0);
-        }
-      };
-      img.src = objectUrl;
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `dream_teller_${orderId}.jpg`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
     } catch (err) {
       console.error("Download error:", err);
       window.open(resultData.image_url, "_blank");
@@ -315,6 +280,7 @@ export default function DreamResultClient({
   }
 
   const isCompleted = resultData && resultData.analysis_status === "completed";
+  const isFailed = resultData && resultData.analysis_status === "failed";
   const dreamInput = orderData?.dream_content || "작성된 꿈 내용이 없습니다.";
   const expertNameMap: Record<string, string> = {
     freud: "프로이트",
@@ -336,7 +302,41 @@ export default function DreamResultClient({
       </div>
 
       <div className="container relative z-10 px-4 md:px-6 mx-auto max-w-3xl">
-        {!isCompleted ? (
+        {isFailed ? (
+          <div className="relative animate-in fade-in duration-700">
+            <div className="relative bg-[#18181b]/95 backdrop-blur-2xl border border-red-500/30 rounded-[2rem] p-8 md:p-12 text-center shadow-2xl space-y-8">
+              <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center mx-auto border border-red-500/20">
+                <ShieldAlert className="w-10 h-10 text-red-400" />
+              </div>
+              <div className="space-y-3">
+                <h1 className="text-2xl font-bold text-white tracking-tight">
+                  해몽 분석 중 오류가 발생했습니다
+                </h1>
+                <p className="text-slate-400 text-sm max-w-md mx-auto">
+                  일시적인 서버 문제이거나 네트워크 지연일 수 있습니다.<br />
+                  이용권이 차감되었다면 자동으로 복구되니 안심하고 다시 시도해 주세요.
+                </p>
+              </div>
+              <Button
+                onClick={triggerAiGeneration}
+                disabled={isTriggeringAi}
+                className="bg-gradient-to-r from-dream-purple to-dream-pink text-white font-semibold py-6 px-8 rounded-xl shadow-lg"
+              >
+                {isTriggeringAi ? (
+                  <>
+                    <RefreshCcw className="w-5 h-5 mr-2 animate-spin" />
+                    재요청 중...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCcw className="w-5 h-5 mr-2" />
+                    해몽 다시 생성하기
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        ) : !isCompleted ? (
           <div className="relative animate-in fade-in duration-700">
             <div className="absolute -inset-1 bg-gradient-to-r from-dream-purple via-dream-blue to-dream-pink rounded-[2.5rem] blur-xl opacity-40 animate-pulse" />
             
@@ -386,33 +386,25 @@ export default function DreamResultClient({
                     onClick={triggerAiGeneration}
                     disabled={isTriggeringAi}
                     variant="outline"
-                    className="w-full sm:w-1/2 border-dream-purple/40 text-dream-purple-light hover:bg-dream-purple/20 font-bold py-6 rounded-xl flex items-center justify-center gap-2"
+                    className="w-full border-white/10 text-slate-300 hover:text-white"
                   >
-                    <RefreshCw className={cn("w-4 h-4", isTriggeringAi && "animate-spin")} />
-                    <span>{isTriggeringAi ? "해몽 생성 중..." : "🔄 AI 해몽 생성 시작하기"}</span>
+                    {isTriggeringAi ? (
+                      <>
+                        <RefreshCcw className="w-4 h-4 mr-2 animate-spin" />
+                        재요청 중...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCcw className="w-4 h-4 mr-2" />
+                        진행이 멈춘 것 같다면 (수동 생성)
+                      </>
+                    )}
                   </Button>
-
                   <Button
-                    onClick={async () => {
-                      const { data: authData } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
-                      const user = authData?.user || null;
-                      if (user) {
-                        router.push("/my-page");
-                      } else {
-                        const gp = sessionStorage.getItem("guestPhone");
-                        const gpw = sessionStorage.getItem("guestPassword");
-                        if (gp && gpw) {
-                          sessionStorage.setItem("guestLoginPhone", gp);
-                          sessionStorage.setItem("guestLoginPassword", gpw);
-                          router.push("/guest-check");
-                        } else {
-                          router.push("/guest-login");
-                        }
-                      }
-                    }}
-                    className="w-full sm:w-1/2 bg-gradient-to-r from-dream-purple to-dream-pink text-white font-bold py-6 rounded-xl shadow-lg hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+                    onClick={() => router.push("/my-page")}
+                    className="w-full bg-white/10 hover:bg-white/20 text-white"
                   >
-                    <span>마이페이지에서 대기하기</span> <ArrowRight className="w-4 h-4" />
+                    마이페이지에서 나중에 확인하기
                   </Button>
                 </div>
               </div>
@@ -420,122 +412,137 @@ export default function DreamResultClient({
             </div>
           </div>
         ) : (
-          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-6 duration-700">
-            {/* 1. 이미지 및 헤더 카드 */}
-            <div className="relative rounded-[2.5rem] overflow-hidden border border-white/10 bg-[#161622]/90 shadow-2xl">
+          <div className="space-y-8 animate-in fade-in duration-700">
+            {/* 해몽 결과 카드 */}
+            <Card className="bg-[#18181b]/80 backdrop-blur-xl border-white/10 overflow-hidden shadow-2xl">
+              
+              {/* 이미지 영역 (포함된 주문일 경우에만 렌더링) */}
               {resultData?.image_url && (
-                <div className="relative aspect-square sm:aspect-[16/10] w-full overflow-hidden group">
+                <div className="relative aspect-square md:aspect-[21/9] w-full overflow-hidden group">
                   <Image
                     src={resultData.image_url}
-                    alt="AI 생성 꿈 비주얼 아트"
+                    alt="꿈 해몽 이미지"
                     fill
+                    className="object-cover transition-transform duration-700 group-hover:scale-105"
                     priority
-                    sizes="(max-width: 768px) 100vw, 800px"
-                    className="object-cover transition-transform duration-1000 group-hover:scale-105"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#161622] via-[#161622]/40 to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#18181b] via-transparent to-transparent opacity-80" />
                   
-                  {/* 이미지 다운로드 전용 플로팅 버튼 */}
-                  <button
+                  {/* 이미지 다운로드 버튼 */}
+                  <Button
                     onClick={handleDownloadImage}
-                    className="absolute top-4 right-4 bg-black/60 hover:bg-black/80 backdrop-blur-md text-white px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 border border-white/20 transition-all cursor-pointer shadow-lg"
+                    variant="secondary"
+                    size="sm"
+                    className="absolute top-4 right-4 bg-black/50 hover:bg-black/80 text-white border-white/20 backdrop-blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-300"
                   >
-                    <Download className="w-4 h-4 text-dream-pink-light" />
-                    <span>HD 이미지 저장</span>
-                  </button>
+                    <Download className="w-4 h-4 mr-2" />
+                    저장
+                  </Button>
+
+                  <div className="absolute bottom-6 left-6 right-6">
+                    <Badge className="bg-dream-purple/80 text-white border-0 backdrop-blur-md mb-3 px-3 py-1">
+                      <Sparkles className="w-3 h-3 mr-1" />
+                      {expertName} 관점 분석 완료
+                    </Badge>
+                  </div>
                 </div>
               )}
 
-              <div className="p-6 md:p-10 space-y-6 relative z-10">
-                {/* 상단 태그 */}
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex items-center gap-2">
-                    <span className="px-3 py-1 rounded-full bg-dream-purple/20 border border-dream-purple/40 text-dream-pink-light text-xs font-bold flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5" />
-                      {expertName} 심층 분석 보고서
-                    </span>
-                    <span className="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-slate-300 text-xs font-medium">
-                      분석 완료
-                    </span>
+              {/* 본문 영역 */}
+              <div className="p-6 md:p-10 space-y-8">
+                
+                {/* 제목 (이미지가 없는 주문일 경우를 위해) */}
+                {!resultData?.image_url && (
+                  <div className="flex flex-col items-start gap-4 pb-4 border-b border-white/10">
+                    <Badge className="bg-dream-purple/20 text-dream-pink-light border border-dream-purple/40 px-3 py-1">
+                      <Sparkles className="w-3 h-3 mr-1" />
+                      {expertName} 관점 분석 완료
+                    </Badge>
                   </div>
+                )}
 
-                  {/* 피드 공개 여부 스위치 토글 */}
-                  <div className="flex items-center gap-2.5 bg-black/40 px-3.5 py-1.5 rounded-full border border-white/10">
-                    <span className="text-xs text-slate-300 font-medium">공개 피드 자랑하기</span>
-                    <Switch
-                      checked={isPublic}
-                      onCheckedChange={handleTogglePublic}
-                      disabled={isTogglingPublic}
-                      className="data-[state=checked]:bg-dream-purple"
-                    />
-                  </div>
-                </div>
-
-                {/* 내 꿈 내용 인용구 Box */}
-                <div className="relative p-6 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md space-y-2">
-                  <Quote className="w-8 h-8 text-dream-purple/40 absolute top-4 right-4 pointer-events-none" />
-                  <span className="text-xs font-semibold text-dream-purple-light block">내가 작성한 꿈</span>
-                  <p className="text-sm md:text-base text-slate-200 leading-relaxed italic">
-                    "{dreamInput}"
+                {/* 내 꿈 내용 인용구 */}
+                <div className="relative p-6 rounded-2xl bg-white/5 border border-white/10 italic text-slate-300">
+                  <Quote className="absolute top-4 left-4 w-8 h-8 text-white/10 rotate-180" />
+                  <p className="relative z-10 text-sm md:text-base leading-relaxed pl-6">
+                    {dreamInput}
                   </p>
                 </div>
-              </div>
-            </div>
 
-            {/* 2. 해몽 상세 텍스트 본문 */}
-            <div className="rounded-[2.5rem] border border-white/10 bg-[#161622]/90 p-6 md:p-10 shadow-2xl space-y-6">
-              <h2 className="text-xl md:text-2xl font-bold text-white tracking-tight flex items-center gap-2 border-b border-white/10 pb-4">
-                <Brain className="w-6 h-6 text-dream-pink-light" />
-                <span>심층 무의식 리포트</span>
-              </h2>
-
-              <div className="prose prose-invert max-w-none text-slate-200 text-base leading-relaxed space-y-4 whitespace-pre-wrap font-sans">
-                {analysisContent}
-              </div>
-
-              {/* 하단 공유 & 액션 바 */}
-              <div className="pt-8 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4">
-                <div className="flex items-center gap-2 w-full sm:w-auto">
-                  <Button
-                    onClick={handleCopyLink}
-                    variant="outline"
-                    className="flex-1 sm:flex-none border-white/20 bg-white/5 text-slate-200 hover:bg-white/10 hover:text-white rounded-xl py-5"
-                  >
-                    {isCopied ? (
-                      <>
-                        <CheckCircle2 className="w-4 h-4 text-emerald-400 mr-2" />
-                        복사완료!
-                      </>
-                    ) : (
-                      <>
-                        <LinkIcon className="w-4 h-4 mr-2" />
-                        결과 링크 복사
-                      </>
-                    )}
-                  </Button>
-
-                  <Button
-                    onClick={handleShareKakao}
-                    className="flex-1 sm:flex-none bg-[#FEE500] hover:bg-[#FEE500]/90 text-[#191919] font-bold rounded-xl py-5 shadow-lg"
-                  >
-                    <Share2 className="w-4 h-4 mr-2" />
-                    카카오톡 공유
-                  </Button>
-                </div>
-
-                <Button
-                  onClick={() => router.push("/dream-teller")}
-                  className="w-full sm:w-auto bg-gradient-to-r from-dream-purple to-dream-blue text-white font-bold rounded-xl py-5 px-8 shadow-lg hover:opacity-90 transition-opacity"
+                {/* 마크다운 해몽 본문 (Shadcn UI Typography 스타일 적용) */}
+                <div className="prose prose-invert prose-slate max-w-none 
+                  prose-headings:text-white prose-headings:font-bold 
+                  prose-h1:text-2xl prose-h1:md:text-3xl prose-h1:border-b prose-h1:border-white/10 prose-h1:pb-4 prose-h1:mb-8
+                  prose-h2:text-xl prose-h2:text-dream-pink-light prose-h2:mt-8 prose-h2:mb-4
+                  prose-h3:text-lg prose-h3:text-dream-blue-light
+                  prose-p:text-slate-300 prose-p:leading-relaxed prose-p:mb-6
+                  prose-strong:text-white prose-strong:bg-dream-purple/20 prose-strong:px-1.5 prose-strong:py-0.5 prose-strong:rounded-md
+                  prose-ul:text-slate-300 prose-li:marker:text-dream-purple-light
+                  prose-blockquote:border-l-dream-purple-light prose-blockquote:bg-white/5 prose-blockquote:py-1 prose-blockquote:pr-4 prose-blockquote:rounded-r-lg"
                 >
-                  다른 꿈 해몽하기
-                </Button>
+                  <ReactMarkdown>{analysisContent}</ReactMarkdown>
+                </div>
+                
               </div>
+            </Card>
+
+            {/* 하단 액션 버튼 그룹 */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Button
+                onClick={() => router.push("/")}
+                className="w-full bg-gradient-to-r from-dream-purple to-dream-pink text-white py-6 text-lg font-semibold rounded-xl shadow-lg hover:shadow-dream-purple/25 transition-all"
+              >
+                다른 꿈 해몽하기
+              </Button>
+              
+              <Button
+                onClick={handleShare}
+                variant="outline"
+                className="w-full border-white/20 text-slate-200 py-6 text-lg hover:bg-white/10 rounded-xl"
+              >
+                <Share2 className="w-5 h-5 mr-2" />
+                결과 공유하기
+              </Button>
             </div>
 
-            {/* 의료 면책 조항 배너 */}
-            <div className="p-4 rounded-xl bg-white/5 border border-white/10 text-center text-xs text-slate-400">
-              💡 본 서비스의 해몽 리포트는 엔터테인먼트 목적의 AI 상징 분석이며, 의학적/정신과적 전문 진단을 대체할 수 없습니다.
-            </div>
+            {/* 공개/비공개 토글 컨트롤 */}
+            <Card className="bg-[#18181b]/50 border-white/5 p-6 rounded-xl mt-8">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="flex items-start gap-4 text-left">
+                  <div className={`p-2 rounded-lg shrink-0 transition-colors ${isPublic ? 'bg-green-500/10' : 'bg-slate-500/10'}`}>
+                    {isPublic ? (
+                      <Eye className="w-6 h-6 text-green-400" />
+                    ) : (
+                      <EyeOff className="w-6 h-6 text-slate-400" />
+                    )}
+                  </div>
+                  <div>
+                    <h4 className="text-white font-medium text-lg mb-1">
+                      {isPublic ? "이 해몽은 피드에 공개되어 있습니다" : "이 해몽은 나만 볼 수 있습니다"}
+                    </h4>
+                    <p className="text-slate-400 text-sm">
+                      {isPublic 
+                        ? "다른 사람들이 이 멋진 해몽과 이미지를 볼 수 있습니다." 
+                        : "해석 결과를 피드에 공개하여 다른 사람들과 영감을 나눠보세요."}
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-3 bg-black/40 px-4 py-2 rounded-lg border border-white/5 shrink-0">
+                  <Label htmlFor="public-toggle" className="text-sm font-medium text-slate-300 cursor-pointer">
+                    {isPublic ? "공개 상태" : "비공개 상태"}
+                  </Label>
+                  <Switch
+                    id="public-toggle"
+                    checked={isPublic}
+                    onCheckedChange={handleTogglePublic}
+                    disabled={isTogglingPublic}
+                    className="data-[state=checked]:bg-green-500"
+                  />
+                </div>
+              </div>
+            </Card>
+
           </div>
         )}
       </div>
