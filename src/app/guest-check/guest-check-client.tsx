@@ -104,7 +104,7 @@ export default function GuestCheckClient() {
     } catch (err) {
       console.error("Fetch guest orders failed:", err);
       setOrders([]);
-    } flex {
+    } finally {
       setIsChecking(false);
     }
   }, [router]);
@@ -198,7 +198,7 @@ export default function GuestCheckClient() {
             variant="outline"
             size="sm"
             onClick={handleLogout}
-            className="border-white/10 bg-black/20 text-slate-300 hover:text-white hover:bg-white/5 cursor-pointer self-start md:self-auto"
+            className="border-white/10 bg-[#0d0d12] text-slate-300 hover:text-white hover:bg-white/5 cursor-pointer self-start md:self-auto"
           >
             <LogOut className="w-4 h-4 mr-2" />
             조회 종료
