@@ -1,6 +1,9 @@
 import { Suspense } from "react";
 import PaymentsClient from "./payments-client";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export const metadata = {
   title: "결제하기 | Dream Teller",
   description: "선택하신 꿈 해몽 옵션의 결제를 진행합니다.",

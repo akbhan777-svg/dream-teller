@@ -10,15 +10,19 @@ export default function PaymentsClient() {
   const searchParams = useSearchParams();
   const [orderId, setOrderId] = useState("");
   const [customerKey, setCustomerKey] = useState("ANONYMOUS");
+  const [confirmedAmount, setConfirmedAmount] = useState<number | null>(null);
 
   const planParam = searchParams.get("plan");
   const expertParam = searchParams.get("expert");
+  const amountParam = searchParams.get("amount");
   const includesImageParam = searchParams.get("includesImage") !== "false"; // 기본값 true
 
-  let amount = includesImageParam ? 2000 : 1500;
-  if (planParam === "pass5") amount = 7200;
-  else if (planParam === "pass10") amount = 13500;
-  else if (planParam === "use_pass") amount = 0;
+  let fallbackAmount = amountParam ? Number(amountParam) : (includesImageParam ? 1190 : 990);
+  if (planParam === "pass5") fallbackAmount = 4760;
+  else if (planParam === "pass10") fallbackAmount = 8330;
+  else if (planParam === "use_pass") fallbackAmount = 0;
+
+  const amount = confirmedAmount !== null ? confirmedAmount : fallbackAmount;
   
   let planName = includesImageParam ? "1회 해석권 (단판 + AI 이미지 포함)" : "1회 해석권 (단판)";
   if (planParam === "pass5") planName = "5회 해석권 (다회권)";
@@ -78,6 +82,9 @@ export default function PaymentsClient() {
         if (isMounted) {
           if (data.success && data.orderId) {
             setOrderId(data.orderId);
+            if (data.amount !== undefined) {
+              setConfirmedAmount(Number(data.amount));
+            }
             if (typeof window !== "undefined") {
               sessionStorage.setItem("activeOrderId", data.orderId);
             }
