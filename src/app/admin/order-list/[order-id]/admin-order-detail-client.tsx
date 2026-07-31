@@ -14,7 +14,8 @@ import {
   Phone, 
   ShieldCheck, 
   FileText,
-  ImageIcon
+  ImageIcon,
+  PlusCircle
 } from "lucide-react";
 import {
   Card,
@@ -25,7 +26,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { regenerateDreamResult, getAdminOrderDetail } from "@/app/actions/admin";
+import { regenerateDreamResult, getAdminOrderDetail, addManualCompensationPass } from "@/app/actions/admin";
 import { useRouter } from "next/navigation";
 
 interface OrderDetail {
@@ -68,6 +69,8 @@ export default function AdminOrderDetailClient({ orderId, initialOrder }: AdminO
   const [order, setOrder] = useState<OrderDetail | null>(initialOrder);
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [regenSuccessMsg, setRegenSuccessMsg] = useState("");
+  const [isAddingPass, setIsAddingPass] = useState(false);
+  const [passSuccessMsg, setPassSuccessMsg] = useState("");
 
   const fetchOrder = async () => {
     try {
@@ -79,8 +82,8 @@ export default function AdminOrderDetailClient({ orderId, initialOrder }: AdminO
       if (res.success && res.data) {
         const data = res.data;
         const user = data.users || {};
-        const payment = data.payments || {};
-        const dreamResult = data.dream_results || {};
+        const payment = Array.isArray(data.payments) ? (data.payments[0] || {}) : (data.payments || {});
+        const dreamResult = Array.isArray(data.dream_results) ? (data.dream_results[0] || {}) : (data.dream_results || {});
 
         setOrder({
           id: data.id,
@@ -91,7 +94,7 @@ export default function AdminOrderDetailClient({ orderId, initialOrder }: AdminO
           user: {
             nickname: user.nickname || "비회원",
             email: user.email || "-",
-            phone: user.phone_number || "-",
+            phone: user.phone_number || data.guest_phone || "-",
             role: user.role || "게스트",
             provider: user.provider || "-",
           },
@@ -141,6 +144,30 @@ export default function AdminOrderDetailClient({ orderId, initialOrder }: AdminO
     }
   };
 
+  const handleAddPass = async () => {
+    if (!order) return;
+    if (!confirm("소비자 보상/오류 대응용으로 1회 해몽 이용권을 수동 충전하시겠습니까?")) return;
+    
+    setIsAddingPass(true);
+    setPassSuccessMsg("");
+    setRegenSuccessMsg("");
+
+    try {
+      const result = await addManualCompensationPass(orderId);
+      if (result.success) {
+        setPassSuccessMsg(`성공적으로 이용권 1회가 충전되었습니다. (현재 잔여: ${result.newRemaining}회)`);
+        await fetchOrder();
+      } else {
+        alert(`충전 실패: ${result.error}`);
+      }
+    } catch (err) {
+      console.error(err);
+      alert("이용권 충전 중 오류가 발생했습니다.");
+    } finally {
+      setIsAddingPass(false);
+    }
+  };
+
   if (!order) {
     return (
       <div className="text-center py-20 text-muted-foreground">
@@ -175,8 +202,20 @@ export default function AdminOrderDetailClient({ orderId, initialOrder }: AdminO
           </div>
         </div>
 
-        {/* 재생성 버튼 */}
+        {/* 버튼 그룹 */}
         <div className="flex items-center gap-3">
+          {/* 에러 보상 이용권 수동 충전 버튼 */}
+          <Button
+            onClick={handleAddPass}
+            disabled={isAddingPass}
+            variant="outline"
+            className="gap-2 border-emerald-500/50 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+          >
+            <PlusCircle className={`h-4 w-4 ${isAddingPass ? "animate-pulse" : ""}`} />
+            {isAddingPass ? "충전 중..." : "이용권 수동 충전 (+1회)"}
+          </Button>
+
+          {/* 재생성 버튼 */}
           <Button
             onClick={handleRegenerate}
             disabled={isRegenerating || (order.payment.status !== "paid" && order.payment.status !== "completed")}
@@ -188,9 +227,10 @@ export default function AdminOrderDetailClient({ orderId, initialOrder }: AdminO
         </div>
       </div>
 
-      {regenSuccessMsg && (
-        <div className="p-3 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-sm font-medium">
-          {regenSuccessMsg}
+      {(regenSuccessMsg || passSuccessMsg) && (
+        <div className="p-3 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-sm font-medium flex flex-col gap-1">
+          {regenSuccessMsg && <span>{regenSuccessMsg}</span>}
+          {passSuccessMsg && <span>{passSuccessMsg}</span>}
         </div>
       )}
 

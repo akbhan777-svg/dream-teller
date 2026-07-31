@@ -186,6 +186,8 @@ export default function AdminOrderListClient({ initialOrders }: AdminOrderListCl
                     const isMember = isRealMember ? "회원" : "비회원";
                     const isCompleted = order.payment_status === "paid" || order.payment_status === "completed";
                     const displayRemainingPasses = order.snapshot_remaining !== undefined ? order.snapshot_remaining : order.users?.remaining_interprets;
+                    const adminCharge = order.snapshot_admin_charge || 0;
+                    const basePasses = adminCharge > 0 && displayRemainingPasses !== undefined ? displayRemainingPasses - adminCharge : displayRemainingPasses;
                     
                     let aiStatusBadge = <Badge variant="outline" className="text-muted-foreground">대기중</Badge>;
                     if (order.order_type === "pass_charge_5" || order.order_type === "pass_charge_10") {
@@ -226,7 +228,7 @@ export default function AdminOrderListClient({ initialOrders }: AdminOrderListCl
                               {isRealMember ? (order.users?.nickname || "회원") : "비회원"}
                               {isRealMember && displayRemainingPasses !== undefined && (
                                 <Badge variant="outline" className="text-[10px] bg-blue-50/50 text-blue-600 border-blue-200 px-1 py-0 h-4">
-                                  잔여 {displayRemainingPasses}회
+                                  {adminCharge > 0 ? `잔여 ${basePasses}회+충전 ${adminCharge}회` : `잔여 ${displayRemainingPasses}회`}
                                 </Badge>
                               )}
                             </span>

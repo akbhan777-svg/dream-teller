@@ -140,30 +140,56 @@ export async function getAdminOrders(page = 1, limit = 20, status = "all") {
     const userIds = Array.from(new Set(ordersList.map((o: any) => o.user_id).filter((id: string) => id && id !== "00000000-0000-0000-0000-000000000000")));
 
     const snapshotMap: Record<string, number> = {};
+    const adminChargeMap: Record<string, number> = {};
 
     if (userIds.length > 0) {
       const { data: transactions } = await supabaseAdmin
         .from("pass_transactions")
-        .select("user_id, order_id, amount, created_at, id")
+        .select("user_id, order_id, amount, created_at, id, transaction_type")
         .in("user_id", userIds)
         .order("created_at", { ascending: true })
         .order("id", { ascending: true });
 
       if (transactions) {
         const userBalances: Record<string, number> = {};
+        
+        // 1. 유저들의 현재 실제 잔여 횟수를 초기값으로 설정 (누락된 수동 증감분 등 보정)
+        const { data: usersData } = await supabaseAdmin
+          .from("users")
+          .select("id, remaining_interprets")
+          .in("id", userIds);
+          
+        if (usersData) {
+          usersData.forEach((u: any) => {
+            userBalances[u.id] = u.remaining_interprets || 0;
+          });
+        }
+
+        // adminChargeMap 계산: 수동 충전(+1) 횟수 파악
         transactions.forEach((pt: any) => {
+           if (pt.order_id && pt.transaction_type === "charge" && pt.amount === 1) {
+              adminChargeMap[pt.order_id] = (adminChargeMap[pt.order_id] || 0) + 1;
+           }
+        });
+
+        // 2. 트랜잭션을 역순(최신순)으로 순회하며 과거 시점의 스냅샷 역산
+        const reversedTx = [...transactions].reverse();
+        reversedTx.forEach((pt: any) => {
           const uid = pt.user_id;
-          userBalances[uid] = (userBalances[uid] || 0) + (pt.amount || 0);
-          if (pt.order_id) {
+          // 이 주문에 대한 가장 마지막(최신) 트랜잭션 시점의 잔여 횟수를 스냅샷으로 기록
+          if (pt.order_id && snapshotMap[pt.order_id] === undefined) {
             snapshotMap[pt.order_id] = userBalances[uid];
           }
+          // 역산: 이전 과거 시점으로 돌아가야 하므로 현재 잔여량에서 변동량을 뺌
+          userBalances[uid] -= (pt.amount || 0);
         });
       }
     }
 
     const ordersWithSnapshot = ordersList.map((o: any) => ({
       ...o,
-      snapshot_remaining: snapshotMap[o.id] !== undefined ? snapshotMap[o.id] : o.users?.remaining_interprets
+      snapshot_remaining: snapshotMap[o.id] !== undefined ? snapshotMap[o.id] : o.users?.remaining_interprets,
+      snapshot_admin_charge: adminChargeMap[o.id] || 0
     }));
 
     return JSON.parse(JSON.stringify({
@@ -276,13 +302,14 @@ export async function regenerateDreamResult(orderId: string) {
 
   try {
     // 1. dream_results 상태를 processing으로 변경
-    const { error: updateError } = await supabaseAdmin
+    const { data: updateData, error: updateError } = await supabaseAdmin
       .from("dream_results")
       .update({ analysis_status: "processing" })
-      .eq("order_id", orderId);
+      .eq("order_id", orderId)
+      .select();
 
-    // 없는 경우 insert
-    if (updateError) {
+    // 없는 경우 insert (update는 에러가 나지 않고 0 row를 반환함)
+    if (updateError || !updateData || updateData.length === 0) {
        await supabaseAdmin.from("dream_results").insert({
           order_id: orderId,
           analysis_status: "processing"
@@ -306,7 +333,69 @@ export async function regenerateDreamResult(orderId: string) {
   }
 }
 
-// 6. 비밀 보안키 기반 관리자 본인 인증 및 권한 등록
+// 6. 에러 보상용 관리자 수동 이용권 충전
+export async function addManualCompensationPass(orderId: string) {
+  const adminCheck = await checkAdminRole();
+  if (!adminCheck.isAdmin) return { error: "Unauthorized" };
+
+  const supabaseAdmin = createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
+  try {
+    // 1. 해당 주문의 유저 정보 가져오기
+    const { data: order, error: orderError } = await supabaseAdmin
+      .from("orders")
+      .select("user_id")
+      .eq("id", orderId)
+      .single();
+
+    if (orderError || !order?.user_id) {
+      throw new Error("주문 정보 또는 유저 정보를 찾을 수 없습니다.");
+    }
+
+    const userId = order.user_id;
+
+    // 2. 현재 잔여 횟수 가져오기
+    const { data: user, error: userError } = await supabaseAdmin
+      .from("users")
+      .select("remaining_interprets")
+      .eq("id", userId)
+      .single();
+
+    if (userError || !user) throw new Error("유저 정보를 찾을 수 없습니다.");
+    
+    const newRemaining = (user.remaining_interprets || 0) + 1;
+
+    // 3. 잔여 횟수 1 증가 업데이트
+    const { error: updateError } = await supabaseAdmin
+      .from("users")
+      .update({ remaining_interprets: newRemaining })
+      .eq("id", userId);
+
+    if (updateError) throw updateError;
+
+    // 4. pass_transactions 기록 (스냅샷 추적을 위해 해당 order_id와 연결)
+    const { error: txError } = await (supabaseAdmin.from("pass_transactions") as any).insert({
+      user_id: userId,
+      order_id: orderId,
+      amount: 1,
+      transaction_type: "charge",
+    });
+
+    if (txError) throw txError;
+
+    revalidatePath("/admin/order-list");
+    revalidatePath(`/admin/order-list/${orderId}`);
+
+    return { success: true, newRemaining };
+  } catch (error: any) {
+    return { error: error.message || "Failed to add manual pass" };
+  }
+}
+
+// 7. 비밀 보안키 기반 관리자 본인 인증 및 권한 등록
 export async function verifyAndRegisterAdmin(secretKey: string) {
   try {
     const supabase = await createClient();
@@ -449,4 +538,3 @@ export async function updateUserRole(targetUserId: string, newRole: "admin" | "m
     return { error: error.message || "Failed to update user role" };
   }
 }
-

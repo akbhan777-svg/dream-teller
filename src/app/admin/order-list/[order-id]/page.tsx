@@ -3,11 +3,12 @@ import AdminOrderDetailClient from "./admin-order-detail-client";
 import { redirect } from "next/navigation";
 
 interface PageProps {
-  params: { "order-id": string };
+  params: Promise<{ "order-id": string }>;
 }
 
 export default async function AdminOrderDetailPage({ params }: PageProps) {
-  const orderId = params["order-id"];
+  const resolvedParams = await params;
+  const orderId = resolvedParams["order-id"];
   
   const res = await getAdminOrderDetail(orderId);
   if (res.error === "Unauthorized" || res.error === "Not authenticated") {
@@ -19,8 +20,8 @@ export default async function AdminOrderDetailPage({ params }: PageProps) {
   if (res.success && res.data) {
     const data = res.data;
     const user = data.users || {};
-    const payment = data.payments || {};
-    const dreamResult = data.dream_results || {};
+    const payment = Array.isArray(data.payments) ? (data.payments[0] || {}) : (data.payments || {});
+    const dreamResult = Array.isArray(data.dream_results) ? (data.dream_results[0] || {}) : (data.dream_results || {});
 
     initialOrder = {
       id: data.id,
@@ -31,7 +32,7 @@ export default async function AdminOrderDetailPage({ params }: PageProps) {
       user: {
         nickname: user.nickname || "비회원",
         email: user.email || "-",
-        phone: user.phone_number || "-",
+        phone: user.phone_number || data.guest_phone || "-",
         role: user.role || "게스트",
         provider: user.provider || "-",
       },

@@ -20,11 +20,16 @@ export default function PaymentWidget({ amount, orderId, orderName, customerKey,
   const [isReady, setIsReady] = useState(false);
   const [widgetError, setWidgetError] = useState<string>("");
   const widgetsContainerRef = useRef<HTMLDivElement>(null);
+  const isRenderedRef = useRef(false);
+  // 렌더링된 세부 UI 위젯 객체 (cleanup 시 destroy 용도)
+  const renderedUIRef = useRef<{ paymentMethod: any, agreement: any } | null>(null);
 
   const effectiveKey = (!customerKey || customerKey === "00000000-0000-0000-0000-000000000000") ? ANONYMOUS : customerKey;
 
+  // 1. 토스 위젯 인스턴스 생성
   useEffect(() => {
     let isMounted = true;
+    isRenderedRef.current = false;
 
     const initializeWidget = async () => {
       try {
@@ -36,7 +41,7 @@ export default function PaymentWidget({ amount, orderId, orderName, customerKey,
           customerKey: effectiveKey,
         });
 
-        setWidgets(initializedWidgets);
+        if (isMounted) setWidgets(initializedWidgets);
       } catch (error: any) {
         console.error("토스페이먼츠 위젯 초기화 실패:", error);
         if (isMounted) {
@@ -55,6 +60,7 @@ export default function PaymentWidget({ amount, orderId, orderName, customerKey,
     };
   }, [effectiveKey]);
 
+  // 2. 토스 위젯 렌더링 (인스턴스당 단 1회 렌더링 보장 및 메모리 누수 방지)
   useEffect(() => {
     if (!widgets) return;
 
@@ -69,35 +75,49 @@ export default function PaymentWidget({ amount, orderId, orderName, customerKey,
 
         if (!isMounted) return;
 
-        const pmEl = document.getElementById("payment-method");
-        const agEl = document.getElementById("agreement");
-
-        if (pmEl && pmEl.getElementsByTagName("iframe").length > 0) {
+        // 이미 renderPaymentMethods가 호출된 인스턴스인 경우 중복 호출 방지
+        if (isRenderedRef.current) {
           setIsReady(true);
           return;
         }
 
-        // 결제수단 위젯 렌더링
-        await widgets.renderPaymentMethods({
-          selector: "#payment-method",
-          variantKey: "DEFAULT",
-        });
+        const pmEl = document.getElementById("payment-method");
+        const agEl = document.getElementById("agreement");
 
-        // 약관 위젯 렌더링
-        await widgets.renderAgreement({
-          selector: "#agreement",
-          variantKey: "AGREEMENT",
-        });
+        if (pmEl) pmEl.innerHTML = "";
+        if (agEl) agEl.innerHTML = "";
 
-        if (isMounted) setIsReady(true);
+        isRenderedRef.current = true;
+
+        // 결제수단 위젯 및 약관 위젯 동시 병렬 렌더링 (토스페이먼츠 SDK v2 규격)
+        const [paymentMethodUI, agreementUI] = await Promise.all([
+          widgets.renderPaymentMethods({
+            selector: "#payment-method",
+            variantKey: "DEFAULT",
+          }),
+          widgets.renderAgreement({
+            selector: "#agreement",
+            variantKey: "AGREEMENT",
+          })
+        ]);
+
+        renderedUIRef.current = { paymentMethod: paymentMethodUI, agreement: agreementUI };
+
+        if (isMounted) {
+          setIsReady(true);
+        }
       } catch (error: any) {
         console.error("위젯 렌더링 에러:", error);
+        // 하나의 결제수단 위젯 중복 렌더링 에러 시 안전하게 준비 완료로 간주
+        if (error?.message?.includes("하나의 결제수단") || error?.message?.includes("이미")) {
+          if (isMounted) setIsReady(true);
+          return;
+        }
         if (isMounted) {
           setWidgetError(
-            `위젯 렌더링 실패: ${error?.message || "알 수 없는 에러"}\n` +
-            `(토스 관리자 콘솔에서 결제 위젯의 variantKey가 'DEFAULT' 및 'AGREEMENT'로 설정되어 있는지 확인하세요.)`
+            `위젯 렌더링 실패: ${error?.message || "알 수 없는 에러"}`
           );
-          setIsReady(true); // 에러가 나도 버튼은 활성화하여 사용자가 다시 시도하거나 에러를 볼 수 있게 함
+          setIsReady(true);
         }
       }
     };
@@ -106,6 +126,17 @@ export default function PaymentWidget({ amount, orderId, orderName, customerKey,
 
     return () => {
       isMounted = false;
+      // 컴포넌트 언마운트 시 SDK 이벤트 리스너 해제를 위한 destroy 처리 (모바일 먹통 버그 방지)
+      if (renderedUIRef.current) {
+        try {
+          renderedUIRef.current.paymentMethod?.destroy().catch(console.error);
+          renderedUIRef.current.agreement?.destroy().catch(console.error);
+        } catch (e) {
+          console.error("위젯 초기화 해제 중 에러 무시:", e);
+        }
+        renderedUIRef.current = null;
+      }
+      isRenderedRef.current = false;
     };
   }, [widgets, amount]);
 
