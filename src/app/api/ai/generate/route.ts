@@ -7,14 +7,15 @@ export const runtime = "edge"; // Vercel Edge Function으로 오프로딩하여 
 export const maxDuration = 60; // Edge 환경에서의 최대 허용 대기 시간(60초) 명시적 설정
 
 export async function POST(request: Request) {
-  let orderId: string | undefined;
+  let incomingOrderId: string | undefined;
+  let orderId: string | undefined; // DB 상의 진짜 UUID를 할당할 변수
   let supabaseAdmin: any;
   
   try {
     const body = await request.json();
-    orderId = body.orderId;
+    incomingOrderId = body.orderId;
 
-    if (!orderId) {
+    if (!incomingOrderId) {
       return NextResponse.json({ error: "Missing orderId" }, { status: 400 });
     }
 
@@ -24,15 +25,34 @@ export async function POST(request: Request) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
-    // 1. 주문 정보 획득 (안정성을 위해 join 없이 단독 쿼리)
-    const { data: order, error: orderError } = await supabaseAdmin
-      .from("orders")
-      .select("*")
-      .eq("id", orderId)
-      .maybeSingle();
+    // 1. 주문 정보 획득 (클라이언트에서 넘어오는 order_number 와 서버에서 넘어오는 UUID 모두 대응)
+    const isUuid = incomingOrderId.includes("-") && incomingOrderId.length === 36;
+    let query = supabaseAdmin.from("orders").select("*");
+    
+    if (isUuid) {
+      query = query.eq("id", incomingOrderId);
+    } else {
+      query = query.eq("order_number", incomingOrderId);
+    }
+    
+    const { data: order, error: orderError } = await query.maybeSingle();
 
     if (orderError || !order) {
-      throw new Error(`주문 정보를 찾을 수 없습니다. (ID: ${orderId}) / Error: ${orderError?.message || "None"}`);
+      throw new Error(`주문 정보를 찾을 수 없습니다. (ID: ${incomingOrderId}) / Error: ${orderError?.message || "None"}`);
+    }
+
+    // 이후 쿼리에서는 무조건 UUID인 order.id를 사용
+    orderId = order.id;
+
+    // 1-0. 이미 생성 완료된 주문인지 확인 (중복 생성 방지 멱등성 처리)
+    const { data: existingDone } = await supabaseAdmin
+      .from("dream_results")
+      .select("analysis_status")
+      .eq("order_id", orderId)
+      .maybeSingle();
+
+    if (existingDone && existingDone.analysis_status === "completed") {
+      return NextResponse.json({ success: true, message: "Already completed" });
     }
 
     // 1-1. 서버사이드 보안 및 유해 프롬프트 인젝션 검증 (정보통신망법 준수)
@@ -285,7 +305,7 @@ export async function POST(request: Request) {
 
       await sendTelegramMessage(
         `🚨 <b>[해몽 AI 파이프라인 에러]</b>\n\n` +
-        `<b>주문 ID:</b> <code>${orderId}</code>\n` +
+        `<b>주문 ID:</b> <code>${incomingOrderId || orderId || "Unknown"}</code>\n` +
         `<b>내용:</b> ${error.message}\n` +
         `<b>조치:</b> 이용권 사용건일 경우 1회 자동 환불 및 <code>failed</code> 상태 처리 완료`
       );
