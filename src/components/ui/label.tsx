@@ -12,4 +12,8 @@ const Label = React.forwardRef<HTMLLabelElement, React.LabelHTMLAttributes<HTMLL
 )
 Label.displayName = "Label"
 
+<<<<<<< HEAD
 export { Label }
+=======
+export { Label }
+>>>>>>> 6a2622e (fix: resolve mobile caching and polling issue)

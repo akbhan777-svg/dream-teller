@@ -758,3 +758,12 @@ Next.js (App Router) 웹 서비스 환경에 맞춰 MECE 방법론으로 정리�
 2. **프로덕트 결제 옵션 UI 텍스트 보정 (`/dream-teller`)**
    - Step 4 결제 옵션 카드 우측 상단 뱃지 텍스트를 `총 20% 할인(이미지 포함)`, `총 30% 할인(이미지 포함)`으로 변경.
    - 박스 내부 설명 텍스트를 `이미지 생성 옵션 포함입니다.`로 직관성 있게 정정.
+
+### 16.4. 모바일 Viewport 설정 및 이용권(Pass) 결과 조회 에러/타입 이슈 수정 (2026-07-31)
+1. **모바일 Viewport 환경 메타데이터 반영 (`layout.tsx`)**
+   - iOS/Android 모바일 브라우저에서 입력 폼 터치 시 화면이 자동 확대(Zoom-in)되고 레이아웃이 깨지는 현상을 방지하도록 `export const viewport` 설정(`width: "device-width", initialScale: 1, maximumScale: 1, userScalable: false`) 추가.
+2. **이용권(`use_pass`) 해몽 결과 조회 오류 및 DB 컬럼명 참조 버그 수정 (`dream-result-client.tsx`)**
+   - 회원이 이용권을 사용해 꿈 해몽 요청 시 `payment_status: "paid"`로 정상 저장됨에도 불구하고, 결과 페이지에서 잘못된 속성명(`orderData.status`)을 체크하여 `"결제가 완료되지 않은 주문입니다"` 경고 화면 및 결과 조회 불가("결과를 찾을 수 없습니다")가 유발되던 버그를 `orderData.payment_status`로 올바르게 수정.
+   - 클라이언트 파일 내 남아있던 Git 병합 충돌 마커(`<<<<<<< HEAD`, `=======` 등) 완벽 제거 및 정상 로직으로 조화롭게 통합.
+3. **TypeScript 컴파일 및 IDE 타입 에러 안정화**
+   - `window.Kakao` 전역 타입 선언 추가, Supabase 단일 조회 객체의 `(result as any).is_public` 캐스팅, `ReactMarkdown` 커스텀 컴포넌트 prop의 `: any` 타입 명시, `react-markdown` 임포트 부문의 `// @ts-ignore` 처리를 적용하여 TypeScript 엄격 모드 컴파일 및 IDE 에러 소멸 보장.

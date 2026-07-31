@@ -38,6 +38,13 @@ export const metadata: Metadata = {
   },
 };
 
+export const viewport: import("next").Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+};
+
 /**
  * 루트 레이아웃
  * PRD 5.1 전체 레이아웃 구현:

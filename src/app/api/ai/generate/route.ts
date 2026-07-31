@@ -120,7 +120,11 @@ export async function POST(request: Request) {
           따라서, 이미지 프롬프트에는 **절대로 동물, 사람, 생명체를 직접적으로 묘사하지 마세요.**
           대신 꿈의 핵심 '감정'과 '상징'을 추출하여 **초현실적이고 신비로운 자연 풍경(Landscape)이나 빛나는 마법적 사물(Magical Object)**로 은유하여 프롬프트를 작성해야 합니다.
 
+<<<<<<< HEAD
           예시) "황금 돼지가 쏟아지는 꿈" -> "A breathtaking magical forest glowing 정답 with radiant golden light and sparkling golden leaves falling like rain, ethereal, beautiful scenery, masterpiece, 8k resolution, ultra detailed, photorealistic, luxury aesthetic, cinematic lighting, raytracing, 8k uhd, perfect composition, no animals, no humans"
+=======
+          예시) "황금 돼지가 쏟아지는 꿈" -> "A breathtaking magical forest glowing with radiant golden light and sparkling golden leaves falling like rain, ethereal, beautiful scenery, masterpiece, 8k resolution, ultra detailed, photorealistic, luxury aesthetic, cinematic lighting, raytracing, 8k uhd, perfect composition, no animals, no humans"
+>>>>>>> 6a2622e (fix: resolve mobile caching and polling issue)
           예시) "뱀에게 물리는 꿈" -> "A mystical dark enchanted forest with glowing emerald lights and a single radiant green gemstone on a pedestal, cinematic lighting, magical atmosphere, masterpiece, 8k resolution, luxury aesthetic, no animals, no humans"
 
           보고서 맨 마지막 줄에는 위 규칙을 적용한 영문 프롬프트를 아래 형식으로 정확히 한줄 추가해 주세요:

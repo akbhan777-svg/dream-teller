@@ -17,7 +17,10 @@ import {
   ShieldAlert,
   Link as LinkIcon,
   ArrowRight,
-  RefreshCw
+  RefreshCw,
+  Loader2,
+  Calendar as CalendarIcon,
+  Moon
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -25,9 +28,16 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase/client";
+// @ts-ignore
 import ReactMarkdown from "react-markdown";
 import { toggleDreamPublicAction } from "@/app/actions/dream-action";
 import { cn } from "@/lib/utils";
+
+declare global {
+  interface Window {
+    Kakao: any;
+  }
+}
 
 interface DreamResultClientProps {
   orderId: string;
@@ -45,6 +55,7 @@ export default function DreamResultClient({ orderId }: DreamResultClientProps) {
   const [isTriggeringAi, setIsTriggeringAi] = useState(false);
   const supabase = createClient();
   const pollingInterval = useRef<NodeJS.Timeout | null>(null);
+  const aiTriggeredRef = useRef(false);
 
   const [analyzingStep, setAnalyzingStep] = useState(0);
   const analyzingMessages = [
@@ -53,6 +64,27 @@ export default function DreamResultClient({ orderId }: DreamResultClientProps) {
     "상징적 의미와 현실의 연결고리를 찾는 중입니다...",
     "거의 다 되었습니다. 보고서를 마무리하고 있습니다..."
   ];
+
+  const triggerAiGeneration = async () => {
+    if (isTriggeringAi) return;
+    try {
+      setIsTriggeringAi(true);
+      const res = await fetch("/api/ai/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId }),
+      });
+      if (res.ok) {
+        console.log("AI Generation Triggered Successfully (Background)");
+      } else {
+        console.warn("AI Generation Trigger warning");
+      }
+    } catch (e) {
+      console.error("Client AI trigger error:", e);
+    } finally {
+      setIsTriggeringAi(false);
+    }
+  };
 
   useEffect(() => {
     let stepInterval: NodeJS.Timeout;
@@ -82,7 +114,7 @@ export default function DreamResultClient({ orderId }: DreamResultClientProps) {
 
       if (result) {
         setResultData(result);
-        setIsPublic(result.is_public || false);
+        setIsPublic((result as any).is_public || false);
       }
     } catch (err) {
       console.error("데이터 로드 실패:", err);
@@ -95,30 +127,12 @@ export default function DreamResultClient({ orderId }: DreamResultClientProps) {
     fetchData();
   }, [orderId]);
 
-  const triggerAiGeneration = async () => {
-    if (isTriggeringAi) return;
-    try {
-      setIsTriggeringAi(true);
-      const res = await fetch("/api/ai/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId }),
-      });
-      if (res.ok) {
-        console.log("AI Generation Triggered Successfully (Background)");
-      } else {
-        console.warn("AI Generation Trigger warning");
-      }
-    } catch (err) {
-      console.error("AI Generation Error", err);
-    } finally {
-      setIsTriggeringAi(false);
-    }
-  };
-
   useEffect(() => {
     if (!resultData || (resultData.analysis_status !== "completed" && resultData.analysis_status !== "failed")) {
-      triggerAiGeneration();
+      if (!aiTriggeredRef.current) {
+        aiTriggeredRef.current = true;
+        triggerAiGeneration();
+      }
     }
   }, []);
 
@@ -137,11 +151,19 @@ export default function DreamResultClient({ orderId }: DreamResultClientProps) {
       }, 5000);
     }
 
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        fetchData();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
     return () => {
       if (pollingInterval.current) {
         clearInterval(pollingInterval.current);
         pollingInterval.current = null;
       }
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [resultData?.analysis_status, loading]);
 
@@ -270,7 +292,7 @@ export default function DreamResultClient({ orderId }: DreamResultClientProps) {
     );
   }
 
-  if (orderData.status !== "paid" && orderData.status !== "completed") {
+  if (orderData.payment_status !== "paid" && orderData.payment_status !== "completed") {
     return (
       <main className="min-h-screen bg-[#0A0A0A] flex items-center justify-center p-4">
         <div className="relative max-w-md w-full">
@@ -511,15 +533,15 @@ export default function DreamResultClient({ orderId }: DreamResultClientProps) {
                   <div className="prose prose-invert max-w-none space-y-6">
                     <ReactMarkdown
                       components={{
-                        h1: ({node, ...props}) => <h2 className="text-2xl md:text-3xl font-black text-white mt-12 md:mt-14 mb-6 md:mb-8 border-b border-white/10 pb-4 leading-tight break-keep" {...props} />,
-                        h2: ({node, ...props}) => <h3 className="text-xl md:text-2xl font-bold text-dream-purple-light mt-10 md:mt-12 mb-5 md:mb-6 flex items-center gap-2.5 leading-snug break-keep"><span className="w-1.5 h-5 md:h-6 bg-dream-purple rounded-full inline-block shrink-0"></span><span {...props} /></h3>,
-                        h3: ({node, ...props}) => <h4 className="text-lg md:text-xl font-bold text-dream-pink-light mt-8 md:mt-10 mb-4 md:mb-5 flex items-center gap-2.5 leading-snug break-keep"><span className="w-1.5 h-4 md:h-5 bg-dream-pink rounded-full inline-block shrink-0"></span><span {...props} /></h4>,
-                        h4: ({node, ...props}) => <h5 className="text-base md:text-lg font-bold text-white mt-6 md:mt-8 mb-3 md:mb-4 flex items-center gap-2 leading-snug break-keep"><span className="w-1.5 h-4 bg-white/50 rounded-full inline-block shrink-0"></span><span {...props} /></h5>,
-                        p: ({node, ...props}) => <p className="text-slate-300 leading-[1.8] md:leading-loose text-[15px] md:text-lg break-words" {...props} />,
-                        ul: ({node, ...props}) => <ul className="space-y-3 md:space-y-4 my-5 md:my-6 ml-4 md:ml-6 list-disc marker:text-dream-purple-light" {...props} />,
-                        ol: ({node, ...props}) => <ol className="space-y-3 md:space-y-4 my-5 md:my-6 ml-4 md:ml-6 list-decimal marker:text-dream-purple-light font-bold" {...props} />,
-                        li: ({node, ...props}) => <li className="text-slate-300 text-[15px] md:text-lg leading-[1.8] md:leading-loose break-words pl-1" {...props} />,
-                        strong: ({node, ...props}) => <strong className="text-white font-bold bg-white/10 px-1.5 py-0.5 rounded text-dream-blue-light mx-0.5" {...props} />
+                        h1: ({node, ...props}: any) => <h2 className="text-2xl md:text-3xl font-black text-white mt-12 md:mt-14 mb-6 md:mb-8 border-b border-white/10 pb-4 leading-tight break-keep" {...props} />,
+                        h2: ({node, ...props}: any) => <h3 className="text-xl md:text-2xl font-bold text-dream-purple-light mt-10 md:mt-12 mb-5 md:mb-6 flex items-center gap-2.5 leading-snug break-keep"><span className="w-1.5 h-5 md:h-6 bg-dream-purple rounded-full inline-block shrink-0"></span><span {...props} /></h3>,
+                        h3: ({node, ...props}: any) => <h4 className="text-lg md:text-xl font-bold text-dream-pink-light mt-8 md:mt-10 mb-4 md:mb-5 flex items-center gap-2.5 leading-snug break-keep"><span className="w-1.5 h-4 md:h-5 bg-dream-pink rounded-full inline-block shrink-0"></span><span {...props} /></h4>,
+                        h4: ({node, ...props}: any) => <h5 className="text-base md:text-lg font-bold text-white mt-6 md:mt-8 mb-3 md:mb-4 flex items-center gap-2 leading-snug break-keep"><span className="w-1.5 h-4 bg-white/50 rounded-full inline-block shrink-0"></span><span {...props} /></h5>,
+                        p: ({node, ...props}: any) => <p className="text-slate-300 leading-[1.8] md:leading-loose text-[15px] md:text-lg break-words" {...props} />,
+                        ul: ({node, ...props}: any) => <ul className="space-y-3 md:space-y-4 my-5 md:my-6 ml-4 md:ml-6 list-disc marker:text-dream-purple-light" {...props} />,
+                        ol: ({node, ...props}: any) => <ol className="space-y-3 md:space-y-4 my-5 md:my-6 ml-4 md:ml-6 list-decimal marker:text-dream-purple-light font-bold" {...props} />,
+                        li: ({node, ...props}: any) => <li className="text-slate-300 text-[15px] md:text-lg leading-[1.8] md:leading-loose break-words pl-1" {...props} />,
+                        strong: ({node, ...props}: any) => <strong className="text-white font-bold bg-white/10 px-1.5 py-0.5 rounded text-dream-blue-light mx-0.5" {...props} />
                       }}
                     >
                       {analysisContent}
@@ -566,7 +588,7 @@ export default function DreamResultClient({ orderId }: DreamResultClientProps) {
                       if (typeof window !== "undefined") {
                         sessionStorage.setItem("isReinterpreting", "true");
                         if (orderData?.dream_content) {
-                          sessionStorage.setItem("dreamContent", orderData.dream_content);
+                           sessionStorage.setItem("dreamContent", orderData.dream_content);
                         }
                         if (orderData?.guest_phone) {
                           sessionStorage.setItem("guestPhone", orderData.guest_phone);

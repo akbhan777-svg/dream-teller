@@ -1,9 +1,11 @@
 "use server";
 
 import { createClient } from "@supabase/supabase-js";
+import { unstable_noStore as noStore } from "next/cache";
 
 // RLS 및 FK 조인 버그 방지를 위한 완전 무결점 주문 및 해몽 조회 서버 액션
 export async function fetchOrderAndResultBypass(orderId: string, userId?: string) {
+  noStore();
   try {
     const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
     const supabase = createClient(
