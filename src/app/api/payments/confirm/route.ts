@@ -185,18 +185,21 @@ export async function POST(request: Request) {
       `<b>꿈 내용:</b> ${dreamSnippet}`
     );
 
-    // 5. 비동기 AI 파이프라인 트리거 (Fire and forget)
+    // 5. 비동기 AI 파이프라인 트리거 (Vercel 프로세스 강제 종료 방지를 위해 3초 타임아웃 대기)
     const dreamCheck = order.dream_content && order.dream_content.trim().length > 0;
     if (dreamCheck || order.order_type === "single_interpretation") {
-      // 본 서버의 호스트를 가져오기 위한 처리
       const protocol = request.headers.get("x-forwarded-proto") || "http";
       const host = request.headers.get("host");
       if (host) {
-        fetch(`${protocol}://${host}/api/ai/generate`, {
+        const triggerUrl = `${protocol}://${host}/api/ai/generate`;
+        const fetchPromise = fetch(triggerUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ orderId: order.id }),
         }).catch((err) => console.error("AI trigger fetch error:", err));
+
+        const timeoutPromise = new Promise((resolve) => setTimeout(resolve, 3000));
+        await Promise.race([fetchPromise, timeoutPromise]);
       }
     }
     return NextResponse.json({

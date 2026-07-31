@@ -177,15 +177,19 @@ export async function POST(request: Request) {
         `<b>꿈 내용:</b> ${dreamSnippet}`
       );
 
-      // 2-6. 비동기 AI 파이프라인 트리거
+      // 2-6. 비동기 AI 파이프라인 트리거 (Vercel 프로세스 종료 전 대기)
       const protocol = request.headers.get("x-forwarded-proto") || "http";
       const host = request.headers.get("host");
       if (host) {
-        fetch(`${protocol}://${host}/api/ai/generate`, {
+        const triggerUrl = `${protocol}://${host}/api/ai/generate`;
+        const fetchPromise = fetch(triggerUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ orderId: order.id }),
         }).catch((err) => console.error("AI trigger fetch error:", err));
+
+        const timeoutPromise = new Promise((resolve) => setTimeout(resolve, 3000));
+        await Promise.race([fetchPromise, timeoutPromise]);
       }
 
       return NextResponse.json({
