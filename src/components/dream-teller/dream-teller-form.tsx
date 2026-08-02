@@ -152,6 +152,7 @@ export default function DreamTellerForm() {
     if (cleaned.length <= 7) return `${cleaned.slice(0, 3)}-${cleaned.slice(3)}`;
     return `${cleaned.slice(0, 3)}-${cleaned.slice(3, 7)}-${cleaned.slice(7, 11)}`;
   };
+  const idempotencyKeyRef = useRef<string>("");
 
   const handlePayment = () => {
     if (!isLoggedIn && (paymentOption === "pass5" || paymentOption === "pass10")) {
@@ -161,12 +162,17 @@ export default function DreamTellerForm() {
 
     const amount = calculateTotal();
     
+    if (!idempotencyKeyRef.current) {
+      idempotencyKeyRef.current = `DT_${Date.now()}_${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+    }
+    
     const searchParams = new URLSearchParams({
       amount: amount.toString(),
       plan: paymentOption || "single",
       expert: expert || "",
       isLoggedIn: isLoggedIn.toString(),
       includesImage: includeImage.toString(),
+      orderId: idempotencyKeyRef.current,
     });
     
     if (typeof window !== "undefined") {

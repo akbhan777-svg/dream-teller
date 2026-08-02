@@ -380,10 +380,10 @@ export default function GuestCheckClient() {
             </div>
             <div>
               <h4 className="text-sm font-bold text-white flex items-center gap-1.5">
-                다회권 할인 & AI 이미지 무료 제공
+                다회권 할인 & AI 이미지 기본 제공
               </h4>
               <p className="text-xs text-slate-400 leading-relaxed mt-1.5">
-                1회 해몽 대비 최대 30% 단가 할인 혜택과 함께, 무의식의 억압된 상징을 아트로 시각화하는 프리미엄 AI 이미지 생성 기능을 무료로 제공받으실 수 있습니다.
+                1회 해몽 대비 최대 30% 단가 할인 혜택과 함께, 무의식의 억압된 상징을 아트로 시각화하는 프리미엄 AI 이미지 생성 기능을 기본으로 제공받으실 수 있습니다.
               </p>
             </div>
           </div>

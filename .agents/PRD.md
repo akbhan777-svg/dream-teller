@@ -767,3 +767,36 @@ Next.js (App Router) 웹 서비스 환경에 맞춰 MECE 방법론으로 정리�
    - 클라이언트 파일 내 남아있던 Git 병합 충돌 마커(`<<<<<<< HEAD`, `=======` 등) 완벽 제거 및 정상 로직으로 조화롭게 통합.
 3. **TypeScript 컴파일 및 IDE 타입 에러 안정화**
    - `window.Kakao` 전역 타입 선언 추가, Supabase 단일 조회 객체의 `(result as any).is_public` 캐스팅, `ReactMarkdown` 커스텀 컴포넌트 prop의 `: any` 타입 명시, `react-markdown` 임포트 부문의 `// @ts-ignore` 처리를 적용하여 TypeScript 엄격 모드 컴파일 및 IDE 에러 소멸 보장.
+
+## 17. 최근 고도화 및 버그 수정 내역 (2026-08-02)
+
+### 17.1. 보안 및 소셜 인증 강화
+1. **구글 / 카카오 계정 선택 및 로그인 분기 강제 (`/api/auth/login/route.ts`)**
+   - 구글 로그인 시 `prompt=select_account`, 카카오 로그인 시 `prompt=login` 옵션을 강제 적용.
+   - 다계정 이용자가 로그인 시 계정을 선택할 수 있도록 보장하고, 공용 PC 사용 시 이전 계정으로 자동 로그인되는 보안 및 UX 문제를 해결.
+
+### 17.2. 이미지 퀄리티 및 다운로드 무손실 최적화
+1. **Pollinations AI 다운로드 용량 최적화 (`dream-result-client.tsx`)**
+   - Pollinations AI 생성 이미지를 다운로드할 때 웹 브라우저의 기본 압축으로 인해 100KB 미만으로 다운로드되던 화질 저하 문제 해결.
+   - Canvas API를 활용하여 1440x1440 원본 비트맵을 무손실 PNG Blob으로 컨버팅한 후 다운로드되도록 구현하여 1,000KB(1MB) 내외의 고화질 이미지 보장.
+
+### 17.3. 결제 및 주문 생성 파이프라인 멱등성(Idempotency) 및 무한 로딩 방지
+1. **결제창 진입 시 먹통(무한 로딩) 및 대시보드 결제대기/완료 중복 노출 원천 차단**
+   - **클라이언트 폼 (`dream-teller-form.tsx`)**: 결제 진행 클릭 시 고유 주문번호(`orderId`)를 멱등성 키로 생성 및 전송.
+   - **결제 클라이언트 (`payments-client.tsx`)**: React 18 Strict Mode 환경에서 화면이 '뱅글뱅글' 돌며 멈추던 `isFetchedRef`/`isMounted` 락 로직 제거.
+   - **주문 생성 API (`/api/orders/route.ts`)**: 동일한 `order_number` 요청 수신 시 신규 주문을 생성하지 않고 기존 주문 정보를 반환하도록 멱등성 처리. 동시 다발적 요청에 의한 PostgreSQL 제약조건 위반(Error `23505`) 시 동시 생성된 레코드를 안전하게 조회하여 반환하도록 동시성 예외 처리(Race Condition Defense) 구축.
+
+### 17.4. 관리자 기능 및 AI 재생성 파이프라인 고도화
+1. **관리자 대시보드 주문 상태 구분 명확화 (`/admin/order-list`)**
+   - 결제 대기(`pending`), 결제 완료(`paid`), 결제 실패(`failed`), 환불 완료(`refunded`) 배지를 시각적으로 명확하게 구분하여 표시.
+2. **LLM 해몽 재생성 파이프라인 무한 멈춤 오류 수정 (`/admin/order-list/[order-id]`, `/api/ai/generate`)**
+   - 재생성 트리거 시 `dream_results` 상태가 `processing`으로 사전 변경되어 `/api/ai/generate` 멱등성 검사에서 작업이 강제 종료되던 오류 해결.
+   - `isRegeneration: true` 플래그를 도입하여 관리자 재생성 요청 시 멱등성 검사를 우회하고, 유저의 원본 꿈 내용 및 최초 선택 관점(`expert_field`)을 100% 보존하여 재생성되도록 보장.
+
+### 17.5. UI 텍스트 정정 및 AI 보고서 후처리 개선
+1. **비회원 주문 조회 혜택 문구 정정 (`/guest-check`)**
+   - `다회권 할인 & AI 이미지 무료 제공` 텍스트를 `다회권 할인 & AI 이미지 기본 제공` 및 `기본으로 제공받으실 수 있습니다.`로 직관적으로 정정.
+2. **AI 해몽 리포트 영문 `IMAGE_PROMPT:` 잔여 노출 버그 수정 (`/api/ai/generate`)**
+   - 단판 텍스트 전용 결제(이미지 옵션 미선택) 유저의 해몽 결과 리포트 하단에 `IMAGE_PROMPT: ...` 영문 텍스트가 삭제되지 않고 노출되던 정규식 후처리 순서 오류 수정.
+   - 이미지 생성 유무와 상관없이 보고서 파싱/정문화 단계에서 `IMAGE_PROMPT:` 텍스트가 항상 전처리되어 제거되도록 수정.
+

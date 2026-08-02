@@ -15,6 +15,7 @@ export default function PaymentsClient() {
   const expertParam = searchParams.get("expert");
   const amountParam = searchParams.get("amount");
   const includesImageParam = searchParams.get("includesImage") !== "false"; // 기본값 true
+  const orderIdParam = searchParams.get("orderId");
 
   let fallbackAmount = amountParam ? Number(amountParam) : (includesImageParam ? 1190 : 990);
   if (planParam === "pass5") fallbackAmount = 4760;
@@ -40,11 +41,8 @@ export default function PaymentsClient() {
 
   const [isLoading, setIsLoading] = useState(true);
   const [orderErrorMsg, setOrderErrorMsg] = useState<string>("");
-  const isFetchedRef = useRef(false);
 
   useEffect(() => {
-    let isMounted = true;
-
     // 다회권 차감 플로우인 경우 주문서를 미리 생성하지 않음 (버튼 클릭 시 생성)
     if (planParam === "use_pass") {
       setIsLoading(false);
@@ -67,7 +65,8 @@ export default function PaymentsClient() {
             includesImage: includesImageParam,
             dreamContent,
             guestPhone,
-            guestPassword
+            guestPassword,
+            orderId: orderIdParam // idempotency key로 활용
           })
         });
         
@@ -78,38 +77,28 @@ export default function PaymentsClient() {
           throw new Error(`API 응답 파싱 실패 (상태 코드: ${res.status}) - Vercel 서버 에러일 수 있습니다.`);
         }
 
-        if (isMounted) {
-          if (data.success && data.orderId) {
-            setOrderId(data.orderId);
-            if (data.amount !== undefined) {
-              setConfirmedAmount(Number(data.amount));
-            }
-            if (typeof window !== "undefined") {
-              sessionStorage.setItem("activeOrderId", data.orderId);
-            }
-          } else {
-            console.error("Order creation failed:", data.error);
-            setOrderErrorMsg(data.error || "주문서 생성에 실패했습니다.");
+        if (data.success && data.orderId) {
+          setOrderId(data.orderId);
+          if (data.amount !== undefined) {
+            setConfirmedAmount(Number(data.amount));
           }
+          if (typeof window !== "undefined") {
+            sessionStorage.setItem("activeOrderId", data.orderId);
+          }
+        } else {
+          console.error("Order creation failed:", data.error);
+          setOrderErrorMsg(data.error || "주문서 생성에 실패했습니다.");
         }
       } catch (err: any) {
-        if (isMounted) {
-          console.error("Fetch order error:", err);
-          setOrderErrorMsg(err.message || "알 수 없는 네트워크 오류가 발생했습니다.");
-        }
+        console.error("Fetch order error:", err);
+        setOrderErrorMsg(err.message || "알 수 없는 네트워크 오류가 발생했습니다.");
       } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
+        setIsLoading(false);
       }
     };
 
     createPendingOrder();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [amount, planParam, expertParam]);
+  }, [amount, planParam, expertParam, includesImageParam, orderIdParam]);
 
   const handleUsePass = async () => {
     setIsLoading(true);

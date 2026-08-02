@@ -258,6 +258,10 @@ export default function AdminOrderListClient({ initialOrders }: AdminOrderListCl
                         <TableCell className="text-center">
                           {isCompleted ? (
                             <Badge variant="default">결제완료</Badge>
+                          ) : order.payment_status === "pending" ? (
+                            <Badge variant="outline" className="border-amber-500/50 text-amber-500">결제 대기</Badge>
+                          ) : order.payment_status === "refunded" ? (
+                            <Badge variant="secondary">환불완료</Badge>
                           ) : (
                             <Badge variant="destructive">결제실패</Badge>
                           )}

@@ -16,11 +16,16 @@ export const POST = async (request: Request) => {
     const supabase = await createClient();
     const origin = new URL(request.url).origin;
 
+    let queryParams: Record<string, string> = {};
+    if (provider === "google") queryParams.prompt = "select_account";
+    if (provider === "kakao") queryParams.prompt = "login";
+
     // Trigger OAuth flow using Supabase Auth
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
         redirectTo: `${origin}/api/auth/callback`,
+        queryParams: Object.keys(queryParams).length > 0 ? queryParams : undefined,
       },
     });
 

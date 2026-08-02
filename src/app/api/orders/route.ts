@@ -101,8 +101,26 @@ export async function POST(request: Request) {
       console.warn(`[Orders API] Client sent amount (${amount}) mismatch with server expected (${expectedAmount}). Overriding with expectedAmount (${expectedAmount}).`);
     }
 
-    // 주문 번호 생성 (예: DT_timestamp_random)
-    const orderNumber = `DT_${Date.now()}_${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+    // 주문 번호 생성 (예: DT_timestamp_random) 또는 클라이언트에서 전달받은 idempotency key 사용
+    const orderNumber = body.orderId || `DT_${Date.now()}_${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+
+    // 1-5. 동일 주문번호(idempotency)가 이미 존재하는지 체크 (중복 생성 방지)
+    const { data: existingOrder } = await (supabaseAdmin.from("orders") as any)
+      .select("id, order_number, total_amount, payment_status")
+      .eq("order_number", orderNumber)
+      .maybeSingle();
+
+    if (existingOrder) {
+      if (existingOrder.payment_status === "paid") {
+        return NextResponse.json({ success: false, error: "이미 결제가 완료된 주문입니다." }, { status: 400 });
+      }
+      return NextResponse.json({
+        success: true,
+        orderId: existingOrder.order_number,
+        uuid: existingOrder.id,
+        amount: existingOrder.total_amount,
+      });
+    }
 
     // 2. 다회권 차감 (use_pass) 플로우 분기
     if (plan === "use_pass") {
@@ -222,6 +240,22 @@ export async function POST(request: Request) {
       .single();
 
     if (orderError) {
+      // Race condition (동시 다발적 요청) 방어: 이미 다른 요청이 인서트를 완료한 경우 해당 주문 반환
+      if (orderError.code === "23505" || orderError.message?.includes("duplicate key value")) {
+        const { data: concurrentOrder } = await (supabaseAdmin.from("orders") as any)
+          .select("id, order_number, total_amount, payment_status")
+          .eq("order_number", orderNumber)
+          .maybeSingle();
+          
+        if (concurrentOrder) {
+          return NextResponse.json({
+            success: true,
+            orderId: concurrentOrder.order_number,
+            amount: concurrentOrder.total_amount,
+            uuid: concurrentOrder.id,
+          });
+        }
+      }
       console.error("Orders insert DB error:", orderError);
       return NextResponse.json({ success: false, error: orderError.message || "Failed to insert order" }, { status: 500 });
     }

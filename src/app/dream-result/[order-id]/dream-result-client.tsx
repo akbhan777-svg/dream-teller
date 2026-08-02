@@ -30,7 +30,7 @@ import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase/client";
 // @ts-ignore
 import ReactMarkdown from "react-markdown";
-import { toggleDreamPublicAction } from "@/app/actions/dream-action";
+import { fetchOrderAndResultBypass, toggleDreamPublicAction } from "@/app/actions/order-action";
 import { cn } from "@/lib/utils";
 
 declare global {
@@ -98,23 +98,19 @@ export default function DreamResultClient({ orderId }: DreamResultClientProps) {
 
   const fetchData = async () => {
     try {
-      const { data: order } = await supabase
-        .from("orders")
-        .select("*")
-        .eq("id", orderId)
-        .single();
+      const { order, error } = await fetchOrderAndResultBypass(orderId, undefined);
       
-      if (order) setOrderData(order);
+      if (error) {
+        console.error("데이터 로드 에러:", error);
+      }
 
-      const { data: result } = await supabase
-        .from("dream_results")
-        .select("*")
-        .eq("order_id", orderId)
-        .maybeSingle();
-
-      if (result) {
-        setResultData(result);
-        setIsPublic((result as any).is_public || false);
+      if (order) {
+        setOrderData(order);
+        const result = order.dream_results?.[0];
+        if (result) {
+          setResultData(result);
+          setIsPublic((result as any).is_public || false);
+        }
       }
     } catch (err) {
       console.error("데이터 로드 실패:", err);
@@ -229,17 +225,46 @@ export default function DreamResultClient({ orderId }: DreamResultClientProps) {
   const handleDownloadImage = async () => {
     if (!resultData?.image_url) return;
     try {
+      // 1. 이미지를 서버로부터 Blob 형태로 다운로드
       const response = await fetch(resultData.image_url);
       const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `dream-teller-${orderData?.order_number || "image"}.png`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
+      
+      // 2. 고화질 보장(1000KB 이상)을 위해 무손실 PNG 포맷으로 강제 컨버팅 (Canvas 활용)
+      const objectUrl = window.URL.createObjectURL(blob);
+      const img = document.createElement('img');
+      img.crossOrigin = "anonymous";
+      img.src = objectUrl;
+
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+      });
+
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(img, 0, 0);
+        
+        // 3. 압축이 전혀 없는 원본 무손실 PNG (image/png) 포맷으로 파일 생성
+        canvas.toBlob((pngBlob) => {
+          if (!pngBlob) throw new Error("Canvas toBlob failed");
+          const pngUrl = window.URL.createObjectURL(pngBlob);
+          const link = document.createElement("a");
+          link.href = pngUrl;
+          link.download = `dream-teller-${orderData?.order_number || "image"}-hq.png`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          window.URL.revokeObjectURL(pngUrl);
+          window.URL.revokeObjectURL(objectUrl);
+        }, "image/png", 1.0);
+      } else {
+        throw new Error("Canvas context is null");
+      }
     } catch (err) {
+      console.error(err);
       alert("이미지 다운로드에 실패했습니다. 이미지를 길게 눌러 저장해주세요.");
     }
   };
@@ -432,17 +457,7 @@ export default function DreamResultClient({ orderId }: DreamResultClientProps) {
                   </div>
                 </div>
 
-                <div className="flex flex-col sm:flex-row gap-3 pt-2">
-                  <Button
-                    onClick={triggerAiGeneration}
-                    disabled={isTriggeringAi}
-                    variant="outline"
-                    className="w-full sm:w-1/2 border-dream-purple/40 text-dream-purple-light hover:bg-dream-purple/20 font-bold py-6 rounded-xl flex items-center justify-center gap-2"
-                  >
-                    <RefreshCw className={cn("w-4 h-4", isTriggeringAi && "animate-spin")} />
-                    <span>{isTriggeringAi ? "해몽 생성 중..." : "🔄 AI 해몽 생성 시작하기"}</span>
-                  </Button>
-
+                <div className="flex justify-center pt-2">
                   <Button
                     onClick={async () => {
                       const { data: authData } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
@@ -461,7 +476,7 @@ export default function DreamResultClient({ orderId }: DreamResultClientProps) {
                         }
                       }
                     }}
-                    className="w-full sm:w-1/2 bg-gradient-to-r from-dream-purple to-dream-pink text-white font-bold py-6 rounded-xl shadow-lg hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+                    className="w-full sm:w-2/3 bg-gradient-to-r from-dream-purple to-dream-pink text-white font-bold py-6 rounded-xl shadow-lg hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
                   >
                     <span>마이페이지에서 대기하기</span> <ArrowRight className="w-4 h-4" />
                   </Button>

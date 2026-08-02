@@ -321,7 +321,7 @@ export async function regenerateDreamResult(orderId: string) {
     fetch(`${siteUrl}/api/ai/generate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ orderId }),
+      body: JSON.stringify({ orderId, isRegeneration: true }),
     }).catch(console.error);
 
     revalidatePath("/admin/order-list");

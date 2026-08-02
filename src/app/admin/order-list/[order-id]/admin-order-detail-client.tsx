@@ -285,6 +285,10 @@ export default function AdminOrderDetailClient({ orderId, initialOrder }: AdminO
               <span className="text-muted-foreground">결제 상태</span>
               {(order.payment.status === "paid" || order.payment.status === "completed") ? (
                 <Badge variant="success">결제 완료</Badge>
+              ) : order.payment.status === "pending" ? (
+                <Badge variant="outline" className="border-amber-500/50 text-amber-500">결제 대기</Badge>
+              ) : order.payment.status === "refunded" ? (
+                <Badge variant="secondary">환불 완료</Badge>
               ) : (
                 <Badge variant="destructive">결제 실패</Badge>
               )}

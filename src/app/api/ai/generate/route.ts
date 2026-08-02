@@ -17,6 +17,7 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     incomingOrderId = body.orderId;
+    const isRegeneration = body.isRegeneration || false;
 
     if (!incomingOrderId) {
       return NextResponse.json({ error: "Missing orderId" }, { status: 400 });
@@ -50,12 +51,19 @@ export async function POST(request: Request) {
     // 1-0. 이미 생성 완료된 주문인지 확인 (중복 생성 방지 멱등성 처리)
     const { data: existingDone } = await supabaseAdmin
       .from("dream_results")
-      .select("analysis_status")
+      .select("id, analysis_status")
       .eq("order_id", orderId)
       .maybeSingle();
 
-    if (existingDone && existingDone.analysis_status === "completed") {
-      return NextResponse.json({ success: true, message: "Already completed" });
+    if (!isRegeneration && existingDone && (existingDone.analysis_status === "completed" || existingDone.analysis_status === "processing")) {
+      return NextResponse.json({ success: true, message: "Already processing or completed" });
+    }
+
+    // 중복 실행 방지(Race condition lock)를 위해 백그라운드 파이프라인 시작 전 'processing'으로 선점
+    if (existingDone) {
+      await supabaseAdmin.from("dream_results").update({ analysis_status: "processing" }).eq("id", existingDone.id);
+    } else {
+      await supabaseAdmin.from("dream_results").insert({ order_id: orderId, analysis_status: "processing", is_public: false });
     }
 
     // 1-1. 서버사이드 보안 및 유해 프롬프트 인젝션 검증 (정보통신망법 준수)
@@ -181,22 +189,24 @@ export async function POST(request: Request) {
         const isPassOrder = ["pass_use", "pass_charge_5", "pass_charge_10"].includes(order.order_type);
         const shouldGenerateImage = order.includes_image || isPassOrder;
 
+        let englishImagePrompt = "A breathtaking wide-angle surreal dreamscape, scenic nature background fantasy landscape painting, masterpiece, 8k resolution, ultra detailed, photorealistic, luxury aesthetic, cinematic lighting, 8k uhd, raytracing, no faces";
+        
+        const promptMatch = analysisText.match(/IMAGE_PROMPT:\s*(.+)/i);
+        if (promptMatch && promptMatch[1]) {
+          englishImagePrompt = promptMatch[1].trim();
+          analysisText = analysisText.replace(/IMAGE_PROMPT:\s*.+/i, "").trim();
+        }
+
         if (shouldGenerateImage) {
           try {
-            let englishImagePrompt = "A breathtaking wide-angle surreal dreamscape, scenic nature background fantasy landscape painting, masterpiece, 8k resolution, ultra detailed, photorealistic, luxury aesthetic, cinematic lighting, 8k uhd, raytracing, no faces";
-            
-            const promptMatch = analysisText.match(/IMAGE_PROMPT:\s*(.+)/i);
-            if (promptMatch && promptMatch[1]) {
-              englishImagePrompt = promptMatch[1].trim();
-              analysisText = analysisText.replace(/IMAGE_PROMPT:\s*.+/i, "").trim();
-            }
-
             const cleanPrompt = englishImagePrompt.replace(/[^a-zA-Z0-9\s,.-]/g, "").trim();
-            const qualityEnhancedPrompt = `${cleanPrompt}, masterpiece, 8k resolution, ultra detailed, photorealistic, luxury aesthetic, cinematic lighting, 8k uhd, raytracing, perfect composition`;
-            const encodedPrompt = encodeURIComponent(qualityEnhancedPrompt.substring(0, 450));
+            // 프롬프트를 적절히 잘라서 인코딩 (Pollinations URL 길이 제한 방지)
+            const qualityEnhancedPrompt = `${cleanPrompt.substring(0, 300)}, masterpiece, 8k resolution, ultra detailed, photorealistic, luxury aesthetic, cinematic lighting, raytracing, perfect composition`;
+            const encodedPrompt = encodeURIComponent(qualityEnhancedPrompt);
             const seed = Math.floor(Math.random() * 1000000);
             
-            imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&seed=${seed}&nologo=true&model=flux-realism`.slice(0, 950);
+            // 해상도를 높게 유지하여 클라이언트 캔버스 변환 시 1000KB 이상을 달성할 수 있도록 설정
+            imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1440&height=1440&seed=${seed}&nologo=true&enhance=true&model=flux-realism`;
           } catch (imgPipelineErr) {
             console.error("Image generation pipeline error:", imgPipelineErr);
           }
