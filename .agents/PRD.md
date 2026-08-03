@@ -809,6 +809,22 @@ Next.js (App Router) 웹 서비스 환경에 맞춰 MECE 방법론으로 정리�
    - 2단계 관점 선택 후 3단계로 이동할 때 높이 애니메이션 미완료 시점(100ms)에 스크롤이 호출되어 모바일 좁은 화면에서 입력 박스가 상단 밖으로 튀어나가 가려지던 UX 문제 해결.
    - 아코디언 높이가 완전히 확장되는 시점(350ms)에 맞추어 `scrollIntoView({ behavior: "smooth", block: "center" })`를 실행하고 꿈 입력창(`<textarea>`)에 자동 포커스(Focus)를 적용하여 모바일 화면 중앙에 안정적으로 입력 상자가 배치되도록 개선.
 
+### 17.7. 피드 정제, 소셜 로그인 프로토콜 보정 및 소유권 기반 자랑하기 권한 강화 (2026-08-03)
+1. **꿈해석 피드 더미 데이터 일괄 정리 및 하드코딩 제거 (`/feeds`, `order-action.ts`)**
+   - 기존 DB 내에 테스트 및 더미 목적으로 저장되어 있던 꿈 해몽 결과물의 공개 상태(`is_public`)를 비공개(`false`)로 일괄 전환.
+   - 피드 페이지(`src/app/feeds/page.tsx`) 하단에 가짜 데이터를 노출시키고 잘못된 링크 클릭 시 최신 비공개 보고서로 연결(Fallback)되던 `FeedLoadMore` 더미 컴포넌트를 완전히 제거하여 데이터 보안 및 무결성 확보.
+2. **피드 공개 토글 즉시 캐시 갱신 반영 (`order-action.ts`)**
+   - 보고서 결과 화면에서 유저가 '내 해몽 자랑하기' 스위치를 켤 때 `toggleDreamPublicAction` 서버 액션 내 `revalidatePath('/feeds')`를 수행하도록 보완하여, 피드 페이지의 서버 컴포넌트 캐시가 실시간 갱신되도록 개선.
+3. **Vercel 커스텀 도메인(`ai-dreamteller.com`) 소셜 로그인 2회 시도 오류 수정 (`login/route.ts`, `callback/route.ts`)**
+   - Vercel 프록시 환경에서 `request.url`이 HTTP 프로토콜로 인식되어 `http://` -> `https://` 308 리다이렉트 발생 시 브라우저 보안 쿠키(PKCE Auth Session Cookie)가 버려지던 고질적 문제 해결.
+   - `x-forwarded-host` 헤더를 감지하여 소셜 로그인 요청(`signInWithOAuth`) 및 콜백 완료 후 리다이렉트 시 `https://` 프로토콜을 강제하도록 보정하여 단 1회 시도만으로 즉시 소셜 로그인에 성공하도록 조치.
+4. **보고서 자랑하기(공개/비공개) 스위치 소유권(Ownership) 권한 검증 강화 (`dream-result-client.tsx`)**
+   - 타인이 공개된 보고서 URL을 공유받아 접근했을 때 하단의 '내 해몽 자랑하기' 토글 스위치를 마음대로 변경할 수 있던 보안 허점 차단.
+   - **회원**: `user.id`와 주문의 `user_id` 매칭 검증.
+   - **비회원**: 결제 세션(`activeOrderId`) 또는 비회원 로그인 정보(`guestPassword`) 매칭 검증.
+   - 본인이 아닌 타인이 열람할 경우 '내 해몽 자랑하기' UI 스위치 영역을 완전히 숨김(Hidden) 처리하도록 보안 강화.
+
+
 
 
 

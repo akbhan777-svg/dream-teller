@@ -51,6 +51,7 @@ export default function DreamResultClient({ orderId }: DreamResultClientProps) {
   const [imageRetryCount, setImageRetryCount] = useState(0);
   const [isCopied, setIsCopied] = useState(false);
   const [isPublic, setIsPublic] = useState(false);
+  const [isOwner, setIsOwner] = useState(false);
   const [isTogglingPublic, setIsTogglingPublic] = useState(false);
   const [isTriggeringAi, setIsTriggeringAi] = useState(false);
   const supabase = createClient();
@@ -111,6 +112,35 @@ export default function DreamResultClient({ orderId }: DreamResultClientProps) {
           setResultData(result);
           setIsPublic((result as any).is_public || false);
         }
+
+        // 소유권 확인 로직
+        let owner = false;
+        
+        // 1. 회원 검증
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user && order.user_id === user.id) {
+          owner = true;
+        }
+
+        // 2. 비회원 검증
+        if (!owner && !order.user_id) {
+          const activeOrderId = sessionStorage.getItem("activeOrderId");
+          const guestPhone = sessionStorage.getItem("guestLoginPhone") || sessionStorage.getItem("guestPhone");
+          const guestPassword = sessionStorage.getItem("guestLoginPassword") || sessionStorage.getItem("guestPassword");
+          
+          if (activeOrderId === order.id || activeOrderId === order.order_number) {
+            owner = true;
+          } else if (
+            order.guest_phone && 
+            order.guest_password &&
+            guestPhone === order.guest_phone &&
+            guestPassword === order.guest_password
+          ) {
+            owner = true;
+          }
+        }
+        
+        setIsOwner(owner);
       }
     } catch (err) {
       console.error("데이터 로드 실패:", err);
@@ -569,15 +599,17 @@ export default function DreamResultClient({ orderId }: DreamResultClientProps) {
               <div className="bg-black/40 border-t border-white/5 p-6 md:p-8">
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
                   
-                  <div className="flex items-center gap-4 bg-white/5 px-4 py-3 rounded-xl border border-white/10 w-full sm:w-auto">
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-white">내 해몽 자랑하기</p>
-                      <p className="text-xs text-slate-400">피드에 내 꿈과 해석을 공개합니다</p>
+                  {isOwner && (
+                    <div className="flex items-center gap-4 bg-white/5 px-4 py-3 rounded-xl border border-white/10 w-full sm:w-auto">
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-white">내 해몽 자랑하기</p>
+                        <p className="text-xs text-slate-400">피드에 내 꿈과 해석을 공개합니다</p>
+                      </div>
+                      <Switch checked={isPublic} onCheckedChange={handleTogglePublic} disabled={isTogglingPublic} />
                     </div>
-                    <Switch checked={isPublic} onCheckedChange={handleTogglePublic} disabled={isTogglingPublic} />
-                  </div>
+                  )}
 
-                  <div className="flex w-full sm:w-auto gap-3">
+                  <div className={cn("flex w-full sm:w-auto gap-3", !isOwner && "ml-auto")}>
                     <Button 
                       variant="outline"
                       onClick={handleCopyLink}
