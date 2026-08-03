@@ -2,7 +2,6 @@ import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { Moon, Brain, Eye, Sparkles, ChevronRight } from "lucide-react";
 import Link from "next/link";
-import FeedLoadMore from "@/components/feeds/feed-load-more";
 
 export const metadata = {
   title: "꿈 해석 피드 | Dream Teller",
@@ -134,9 +133,6 @@ const FeedsPage = async () => {
             );
           })}
         </div>
-
-        {/* 더보기 버튼 (Pagination 컴포넌트) */}
-        <FeedLoadMore />
       </div>
     </main>
   );
