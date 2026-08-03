@@ -123,7 +123,7 @@ export default function DreamResultClient({ orderId }: DreamResultClientProps) {
         }
 
         // 2. 비회원 검증
-        if (!owner && !order.user_id) {
+        if (!owner && (!order.user_id || order.user_id === "00000000-0000-0000-0000-000000000000")) {
           const activeOrderId = sessionStorage.getItem("activeOrderId");
           const guestPhone = sessionStorage.getItem("guestLoginPhone") || sessionStorage.getItem("guestPhone");
           const guestPassword = sessionStorage.getItem("guestLoginPassword") || sessionStorage.getItem("guestPassword");
