@@ -132,9 +132,7 @@ export default function DreamResultClient({ orderId }: DreamResultClientProps) {
             owner = true;
           } else if (
             order.guest_phone && 
-            order.guest_password &&
-            guestPhone === order.guest_phone &&
-            guestPassword === order.guest_password
+            guestPhone === order.guest_phone
           ) {
             owner = true;
           }
