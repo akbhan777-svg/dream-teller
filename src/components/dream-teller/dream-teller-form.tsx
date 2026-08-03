@@ -657,8 +657,8 @@ export default function DreamTellerForm() {
       {/* Sticky Bottom Checkout Bar */}
       {(expandAll || activeStep >= 4) && (
         <div className="fixed bottom-0 left-0 right-0 z-50 p-4 md:p-6 bg-black/60 backdrop-blur-xl border-t border-white/10 animate-in slide-in-from-bottom-full duration-500">
-          <div className="max-w-4xl mx-auto flex items-center justify-between">
-            <div>
+          <div className="max-w-4xl mx-auto flex flex-col md:flex-row items-center justify-between gap-3 md:gap-0">
+            <div className="text-center md:text-left">
               <p className="text-sm text-slate-400 mb-1">최종 결제 금액</p>
               <p className="text-2xl md:text-3xl font-black text-white">
                 {calculateTotal().toLocaleString()}<span className="text-lg font-normal text-slate-300 ml-1">원</span>
@@ -676,7 +676,7 @@ export default function DreamTellerForm() {
               className="group relative inline-flex p-[2px] rounded-full bg-gradient-to-r from-dream-pink via-dream-purple to-dream-blue overflow-hidden transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105"
             >
               <span className="absolute inset-0 bg-gradient-to-r from-dream-pink via-dream-purple to-dream-blue opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-md" />
-              <div className="relative bg-background/80 backdrop-blur-md text-white font-bold px-8 py-3 md:px-12 md:py-4 rounded-full border border-white/5 transition-all z-10 flex items-center gap-2">
+              <div className="relative bg-background/80 backdrop-blur-md text-white font-bold px-8 py-3 md:px-12 md:py-4 rounded-full border border-white/5 transition-all z-10 flex items-center justify-center gap-2">
                 <Sparkles className="w-5 h-5" />
                 <span>
                   {paymentOption === "use_pass" ? "해몽 시작하기" : "결제하기"}
