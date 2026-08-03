@@ -106,6 +106,7 @@ export default function DreamTellerForm() {
   const step2Ref = useRef<HTMLDivElement>(null);
   const step3Ref = useRef<HTMLDivElement>(null);
   const step4Ref = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const router = useRouter();
 
@@ -120,11 +121,22 @@ export default function DreamTellerForm() {
 
   const scrollToStep = (step: Step) => {
     setTimeout(() => {
-      if (step === 1 && step1Ref.current) step1Ref.current.scrollIntoView({ behavior: "smooth", block: "center" });
-      if (step === 2 && step2Ref.current) step2Ref.current.scrollIntoView({ behavior: "smooth", block: "center" });
-      if (step === 3 && step3Ref.current) step3Ref.current.scrollIntoView({ behavior: "smooth", block: "center" });
-      if (step === 4 && step4Ref.current) step4Ref.current.scrollIntoView({ behavior: "smooth", block: "center" });
-    }, 100);
+      let targetRef: React.RefObject<HTMLDivElement | null> | null = null;
+      if (step === 1) targetRef = step1Ref;
+      if (step === 2) targetRef = step2Ref;
+      if (step === 3) targetRef = step3Ref;
+      if (step === 4) targetRef = step4Ref;
+
+      if (targetRef && targetRef.current) {
+        targetRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+
+      if (step === 3 && textareaRef.current) {
+        setTimeout(() => {
+          textareaRef.current?.focus({ preventScroll: true });
+        }, 150);
+      }
+    }, 350);
   };
 
   const handleNextStep = (nextStep: Step) => {
@@ -408,7 +420,7 @@ export default function DreamTellerForm() {
             : "border-white/10 bg-[#161622]/85 opacity-55 hover:opacity-85 hover:border-white/20 cursor-pointer",
           activeStep < 3 && !expandAll && "hidden"
         )} 
-        onClick={() => !isStepOpen(3) && activeStep >= 3 && setActiveStep(3)}
+        onClick={() => !isStepOpen(3) && activeStep >= 3 && handleNextStep(3)}
       >
         <div className="p-6 md:p-8">
           <div className="flex items-center justify-between mb-6">
@@ -428,6 +440,7 @@ export default function DreamTellerForm() {
             <div className="relative group">
               <div className="absolute -inset-0.5 bg-gradient-to-r from-dream-pink via-dream-purple to-dream-blue rounded-xl blur opacity-25 group-focus-within:opacity-60 transition duration-1000 group-focus-within:duration-200" />
               <textarea
+                ref={textareaRef}
                 value={dreamContent}
                 onChange={(e) => setDreamContent(e.target.value)}
                 placeholder="꿈의 배경, 등장인물, 느꼈던 감정 등을 상세히 적어주시면 더 정확한 분석이 가능합니다. (최소 20자 이상)"
@@ -658,7 +671,7 @@ export default function DreamTellerForm() {
       {(expandAll || activeStep >= 4) && (
         <div className="fixed bottom-0 left-0 right-0 z-50 p-4 md:p-6 bg-black/60 backdrop-blur-xl border-t border-white/10 animate-in slide-in-from-bottom-full duration-500">
           <div className="max-w-4xl mx-auto flex flex-col md:flex-row items-center justify-between gap-3 md:gap-0">
-            <div className="text-center md:text-left">
+            <div className="w-full text-left md:w-auto">
               <p className="text-sm text-slate-400 mb-1">최종 결제 금액</p>
               <p className="text-2xl md:text-3xl font-black text-white">
                 {calculateTotal().toLocaleString()}<span className="text-lg font-normal text-slate-300 ml-1">원</span>
