@@ -542,7 +542,7 @@ export default function DreamResultClient({ orderId }: DreamResultClientProps) {
 
                 {resultData?.image_url && (
                   <section className="space-y-3">
-                    <h3 className="text-xs font-semibold text-dream-blue-light uppercase tracking-wider px-1">AI 시각화 이미지</h3>
+                    <h3 className="text-xs font-semibold text-dream-blue-light uppercase tracking-wider px-1">AI 아트워크 이미지</h3>
                     <div className="relative w-full aspect-[4/3] rounded-2xl overflow-hidden border border-white/10 group shadow-[0_0_30px_rgba(139,92,246,0.15)]">
                       <Image 
                         key={imageRetryCount}
@@ -597,9 +597,8 @@ export default function DreamResultClient({ orderId }: DreamResultClientProps) {
               </div>
 
               <div className="bg-black/40 border-t border-white/5 p-6 md:p-8">
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
-                  
-                  {isOwner && (
+                {isOwner && (
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
                     <div className="flex items-center gap-4 bg-white/5 px-4 py-3 rounded-xl border border-white/10 w-full sm:w-auto">
                       <div className="flex-1">
                         <p className="text-sm font-medium text-white">내 해몽 자랑하기</p>
@@ -607,51 +606,64 @@ export default function DreamResultClient({ orderId }: DreamResultClientProps) {
                       </div>
                       <Switch checked={isPublic} onCheckedChange={handleTogglePublic} disabled={isTogglingPublic} />
                     </div>
-                  )}
 
-                  <div className={cn("flex w-full sm:w-auto gap-3", !isOwner && "ml-auto")}>
-                    <Button 
-                      variant="outline"
-                      onClick={handleCopyLink}
-                      className="flex-1 sm:flex-none border-white/20 bg-black/50 hover:bg-white/10 text-white rounded-xl py-6 px-4"
-                    >
-                      {isCopied ? <CheckCircle2 className="w-4 h-4 mr-2 text-green-400" /> : <LinkIcon className="w-4 h-4 mr-2" />}
-                      {isCopied ? "복사완료" : "링크 복사"}
-                    </Button>
-                    
-                    <Button 
-                      onClick={handleKakaoShare}
-                      className="flex-1 sm:flex-none bg-[#FEE500] hover:bg-[#FEE500]/90 text-black font-semibold rounded-xl py-6 px-6 shadow-[0_0_20px_rgba(254,229,0,0.2)]"
-                    >
-                      <Share2 className="w-4 h-4 mr-2" />
-                      카카오톡 공유
-                    </Button>
+                    <div className="flex w-full sm:w-auto gap-3">
+                      <Button 
+                        variant="outline"
+                        onClick={handleCopyLink}
+                        className="flex-1 sm:flex-none border-white/20 bg-black/50 hover:bg-white/10 text-white rounded-xl py-6 px-4"
+                      >
+                        {isCopied ? <CheckCircle2 className="w-4 h-4 mr-2 text-green-400" /> : <LinkIcon className="w-4 h-4 mr-2" />}
+                        {isCopied ? "복사완료" : "링크 복사"}
+                      </Button>
+                      
+                      <Button 
+                        onClick={handleKakaoShare}
+                        className="flex-1 sm:flex-none bg-[#FEE500] hover:bg-[#FEE500]/90 text-black font-semibold rounded-xl py-6 px-6 shadow-[0_0_20px_rgba(254,229,0,0.2)]"
+                      >
+                        <Share2 className="w-4 h-4 mr-2" />
+                        카카오톡 공유
+                      </Button>
+                    </div>
                   </div>
-                </div>
+                )}
 
-                <div className="mt-6 pt-6 border-t border-white/10">
-                  <Button
-                    onClick={() => {
-                      if (typeof window !== "undefined") {
-                        sessionStorage.setItem("isReinterpreting", "true");
-                        if (orderData?.dream_content) {
-                           sessionStorage.setItem("dreamContent", orderData.dream_content);
+                <div className={cn("pt-6 border-t border-white/10", isOwner ? "mt-6" : "mt-0")}>
+                  {isOwner ? (
+                    <Button
+                      onClick={() => {
+                        if (typeof window !== "undefined") {
+                          sessionStorage.setItem("isReinterpreting", "true");
+                          if (orderData?.dream_content) {
+                             sessionStorage.setItem("dreamContent", orderData.dream_content);
+                          }
+                          if (orderData?.guest_phone) {
+                            sessionStorage.setItem("guestPhone", orderData.guest_phone);
+                          }
+                          if (orderData?.guest_password) {
+                            sessionStorage.setItem("guestPassword", orderData.guest_password);
+                          }
                         }
-                        if (orderData?.guest_phone) {
-                          sessionStorage.setItem("guestPhone", orderData.guest_phone);
-                        }
-                        if (orderData?.guest_password) {
-                          sessionStorage.setItem("guestPassword", orderData.guest_password);
-                        }
-                      }
-                      router.push("/dream-teller");
-                    }}
-                    className="w-full bg-gradient-to-r from-dream-purple via-dream-blue to-dream-pink hover:opacity-90 text-white font-bold py-6 rounded-xl shadow-[0_0_25px_rgba(139,92,246,0.3)] transition-all flex items-center justify-center gap-2 text-base cursor-pointer"
-                  >
-                    <Brain className="w-5 h-5" />
-                    <span>다른 관점으로 다시 해몽하기</span>
-                    <ArrowRight className="w-5 h-5" />
-                  </Button>
+                        router.push("/dream-teller");
+                      }}
+                      className="w-full bg-gradient-to-r from-dream-purple via-dream-blue to-dream-pink hover:opacity-90 text-white font-bold py-6 rounded-xl shadow-[0_0_25px_rgba(139,92,246,0.3)] transition-all flex items-center justify-center gap-2 text-base cursor-pointer"
+                    >
+                      <Brain className="w-5 h-5" />
+                      <span>다른 관점으로 다시 해몽하기</span>
+                      <ArrowRight className="w-5 h-5" />
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={() => {
+                        router.push("/dream-teller");
+                      }}
+                      className="w-full bg-gradient-to-r from-dream-purple via-dream-blue to-dream-pink hover:opacity-90 text-white font-bold py-6 rounded-xl shadow-[0_0_25px_rgba(139,92,246,0.3)] transition-all flex items-center justify-center gap-2 text-base cursor-pointer"
+                    >
+                      <Brain className="w-5 h-5" />
+                      <span>나도 내 꿈 해몽 받으러 가기</span>
+                      <ArrowRight className="w-5 h-5" />
+                    </Button>
+                  )}
                 </div>
 
                 {/* 의료법 및 표시광고법 법적 면책 조항 (Medical Disclaimer) */}
