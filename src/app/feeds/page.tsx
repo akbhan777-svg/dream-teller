@@ -110,10 +110,7 @@ const FeedsPage = async () => {
                       className="object-cover"
                       sizes="(max-width: 672px) 100vw, 672px"
                     />
-                    {/* 이미지 오버레이 뱃지 */}
-                    <div className="absolute bottom-3 left-3 bg-black/60 backdrop-blur-sm text-xs text-slate-300 px-2.5 py-1 rounded-full border border-white/10">
-                      AI 시각화 이미지
-                    </div>
+
                   </div>
                 )}
 

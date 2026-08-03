@@ -542,7 +542,6 @@ export default function DreamResultClient({ orderId }: DreamResultClientProps) {
 
                 {resultData?.image_url && (
                   <section className="space-y-3">
-                    <h3 className="text-xs font-semibold text-dream-blue-light uppercase tracking-wider px-1">AI 아트워크 이미지</h3>
                     <div className="relative w-full aspect-[4/3] rounded-2xl overflow-hidden border border-white/10 group shadow-[0_0_30px_rgba(139,92,246,0.15)]">
                       <Image 
                         key={imageRetryCount}
@@ -558,15 +557,17 @@ export default function DreamResultClient({ orderId }: DreamResultClientProps) {
                         className="object-cover transition-transform duration-700 group-hover:scale-105"
                       />
                     </div>
-                    <div className="flex justify-end pt-1">
-                      <Button
-                        onClick={handleDownloadImage}
-                        className="bg-white/10 hover:bg-white/20 text-white font-medium text-xs py-2.5 px-4 rounded-xl border border-white/15 flex items-center gap-2 transition-all shadow-md active:scale-95 cursor-pointer"
-                      >
-                        <Download className="w-4 h-4 text-dream-pink-light" />
-                        <span>AI 아트워크 이미지 저장</span>
-                      </Button>
-                    </div>
+                    {isOwner && (
+                      <div className="flex justify-end pt-1">
+                        <Button
+                          onClick={handleDownloadImage}
+                          className="bg-white/10 hover:bg-white/20 text-white font-medium text-xs py-2.5 px-4 rounded-xl border border-white/15 flex items-center gap-2 transition-all shadow-md active:scale-95 cursor-pointer"
+                        >
+                          <Download className="w-4 h-4 text-dream-pink-light" />
+                          <span>AI 아트워크 이미지 저장</span>
+                        </Button>
+                      </div>
+                    )}
                   </section>
                 )}
 
