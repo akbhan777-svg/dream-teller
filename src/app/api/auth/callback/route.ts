@@ -51,5 +51,16 @@ export const GET = async (request: Request) => {
   }
 
   // URL to redirect to after successful sign in process
-  return NextResponse.redirect(`${requestUrl.origin}${next}`);
+  const forwardedHost = request.headers.get('x-forwarded-host');
+  const isLocalEnv = process.env.NODE_ENV === 'development';
+
+  if (isLocalEnv) {
+    return NextResponse.redirect(`${requestUrl.origin}${next}`);
+  } else if (forwardedHost) {
+    return NextResponse.redirect(`https://${forwardedHost}${next}`);
+  } else {
+    // 만약 x-forwarded-host가 없다면, requestUrl.origin의 http를 https로 강제 변환
+    const secureOrigin = requestUrl.origin.replace(/^http:/, 'https:');
+    return NextResponse.redirect(`${secureOrigin}${next}`);
+  }
 };

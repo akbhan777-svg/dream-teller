@@ -14,7 +14,17 @@ export const POST = async (request: Request) => {
     }
 
     const supabase = await createClient();
-    const origin = new URL(request.url).origin;
+    let origin = new URL(request.url).origin;
+    const forwardedHost = request.headers.get('x-forwarded-host');
+    const isLocalEnv = process.env.NODE_ENV === 'development';
+    
+    if (!isLocalEnv) {
+      if (forwardedHost) {
+        origin = `https://${forwardedHost}`;
+      } else {
+        origin = origin.replace(/^http:/, 'https:');
+      }
+    }
 
     let queryParams: Record<string, string> = {};
     if (provider === "google") queryParams.prompt = "select_account";
