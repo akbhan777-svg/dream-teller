@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient } from "@supabase/supabase-js";
-import { unstable_noStore as noStore } from "next/cache";
+import { unstable_noStore as noStore, revalidatePath } from "next/cache";
 
 // RLS 및 FK 조인 버그 방지를 위한 완전 무결점 주문 및 해몽 조회 서버 액션
 export async function fetchOrderAndResultBypass(orderId: string, userId?: string) {
@@ -129,6 +129,8 @@ export async function toggleDreamPublicAction(dreamResultId: string, isPublic: b
     if (!data || data.length === 0) {
       return { success: false, error: "권한이 없거나 찾을 수 없는 데이터입니다." };
     }
+
+    revalidatePath("/feeds");
 
     return { success: true };
   } catch (err: any) {
