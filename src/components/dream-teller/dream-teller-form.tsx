@@ -669,33 +669,37 @@ export default function DreamTellerForm() {
 
       {/* Sticky Bottom Checkout Bar */}
       {(expandAll || activeStep >= 4) && (
-        <div className="fixed bottom-0 left-0 right-0 z-50 p-3 md:p-6 bg-black/70 backdrop-blur-xl border-t border-white/10 animate-in slide-in-from-bottom-full duration-500">
-          <div className="max-w-4xl mx-auto flex items-center justify-between gap-2">
-            <div>
+        <div className="fixed bottom-0 left-0 right-0 z-40 p-3 pb-20 md:p-6 md:pb-6 bg-black/80 backdrop-blur-xl border-t border-white/10 animate-in slide-in-from-bottom-full duration-500">
+          <div className="max-w-4xl mx-auto relative flex items-center justify-between">
+            {/* 위쪽 줄 좌측: 최종 결제 금액 */}
+            <div className="text-left">
               <p className="text-xs md:text-sm text-slate-400 mb-0.5 md:mb-1">최종 결제 금액</p>
-              <p className="text-xl md:text-3xl font-black text-white">
-                {calculateTotal().toLocaleString()}<span className="text-sm md:text-lg font-normal text-slate-300 ml-1">원</span>
+              <p className="text-lg md:text-3xl font-black text-white">
+                {calculateTotal().toLocaleString()}<span className="text-xs md:text-lg font-normal text-slate-300 ml-1">원</span>
               </p>
             </div>
             
-            <button 
-              onClick={handlePayment}
-              disabled={
-                !expert || 
-                dreamContent.trim().length < 20 || 
-                (!isLoggedIn && (guestPhone.length < 12 || guestPassword.length < 4 || paymentOption !== "single")) ||
-                !isRefundConsentAgreed
-              }
-              className="group relative inline-flex p-[2px] rounded-full bg-gradient-to-r from-dream-pink via-dream-purple to-dream-blue overflow-hidden transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105"
-            >
-              <span className="absolute inset-0 bg-gradient-to-r from-dream-pink via-dream-purple to-dream-blue opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-md" />
-              <div className="relative bg-background/80 backdrop-blur-md text-white font-bold px-5 py-2.5 md:px-12 md:py-4 rounded-full border border-white/5 transition-all z-10 flex items-center justify-center gap-1.5 md:gap-2 text-sm md:text-base">
-                <Sparkles className="w-4 h-4 md:w-5 md:h-5" />
-                <span>
-                  {paymentOption === "use_pass" ? "해몽 시작하기" : "결제하기"}
-                </span>
-              </div>
-            </button>
+            {/* 위쪽 줄 중앙 (모바일) / 우측 (데스크톱): 결제하기 버튼 */}
+            <div className="absolute left-1/2 -translate-x-1/2 md:static md:translate-x-0">
+              <button 
+                onClick={handlePayment}
+                disabled={
+                  !expert || 
+                  dreamContent.trim().length < 20 || 
+                  (!isLoggedIn && (guestPhone.length < 12 || guestPassword.length < 4 || paymentOption !== "single")) ||
+                  !isRefundConsentAgreed
+                }
+                className="group relative inline-flex p-[2px] rounded-full bg-gradient-to-r from-dream-pink via-dream-purple to-dream-blue overflow-hidden transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105"
+              >
+                <span className="absolute inset-0 bg-gradient-to-r from-dream-pink via-dream-purple to-dream-blue opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-md" />
+                <div className="relative bg-background/80 backdrop-blur-md text-white font-bold px-4 py-2.5 md:px-12 md:py-4 rounded-full border border-white/5 transition-all z-10 flex items-center justify-center gap-1.5 md:gap-2 text-xs md:text-base whitespace-nowrap">
+                  <Sparkles className="w-4 h-4 md:w-5 md:h-5" />
+                  <span>
+                    {paymentOption === "use_pass" ? "해몽 시작하기" : "결제하기"}
+                  </span>
+                </div>
+              </button>
+            </div>
           </div>
         </div>
       )}
