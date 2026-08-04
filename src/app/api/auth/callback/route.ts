@@ -50,17 +50,40 @@ export const GET = async (request: Request) => {
     }
   }
 
-  // URL to redirect to after successful sign in process
+  // 모바일 인앱 브라우저(WKWebView 등)에서 30x 리다이렉트 시 Set-Cookie를 무시하는 버그를 방지하기 위해 200 HTML 응답으로 클라이언트 사이드 리다이렉트를 수행합니다.
   const forwardedHost = request.headers.get('x-forwarded-host');
   const isLocalEnv = process.env.NODE_ENV === 'development';
 
-  if (isLocalEnv) {
-    return NextResponse.redirect(`${requestUrl.origin}${next}`);
-  } else if (forwardedHost) {
-    return NextResponse.redirect(`https://${forwardedHost}${next}`);
-  } else {
-    // 만약 x-forwarded-host가 없다면, requestUrl.origin의 http를 https로 강제 변환
-    const secureOrigin = requestUrl.origin.replace(/^http:/, 'https:');
-    return NextResponse.redirect(`${secureOrigin}${next}`);
+  let redirectUrl = `${requestUrl.origin}${next}`;
+  if (!isLocalEnv) {
+    if (forwardedHost) {
+      redirectUrl = `https://${forwardedHost}${next}`;
+    } else {
+      redirectUrl = requestUrl.origin.replace(/^http:/, 'https:') + next;
+    }
   }
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8" />
+        <meta http-equiv="refresh" content="0;url=${redirectUrl}" />
+        <title>로그인 완료 중...</title>
+        <script>
+          window.location.replace("${redirectUrl}");
+        </script>
+      </head>
+      <body style="background-color: #0d0d12; color: #fff; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; font-family: sans-serif;">
+        <p>로그인 처리가 완료되었습니다. 이동 중입니다...</p>
+      </body>
+    </html>
+  `;
+
+  return new NextResponse(html, {
+    status: 200,
+    headers: {
+      "Content-Type": "text/html; charset=utf-8",
+    },
+  });
 };
