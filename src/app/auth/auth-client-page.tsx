@@ -39,15 +39,15 @@ const AuthClientPage = () => {
       if (provider === "google") queryParams.prompt = "select_account";
       if (provider === "kakao") queryParams.prompt = "login";
 
-      let origin = "";
+      let origin = process.env.NEXT_PUBLIC_SITE_URL || "https://ai-dreamteller.com";
       if (typeof window !== "undefined") {
-        origin = window.location.origin;
-        if (!origin || origin === "null") {
-          origin = `${window.location.protocol}//${window.location.host}`;
+        const winOrigin = window.location.origin;
+        const winHost = window.location.host;
+        if (winOrigin && winOrigin !== "null" && winOrigin.startsWith("http")) {
+          origin = winOrigin;
+        } else if (winHost && winHost !== "null") {
+          origin = `${window.location.protocol}//${winHost}`;
         }
-      }
-      if (!origin || origin === "null") {
-        origin = process.env.NEXT_PUBLIC_SITE_URL || "https://ai-dreamteller.com";
       }
       
       const { data, error } = await supabase.auth.signInWithOAuth({

@@ -19,7 +19,7 @@ export const POST = async (request: Request) => {
     const isLocalEnv = process.env.NODE_ENV === 'development';
     
     if (!isLocalEnv) {
-      if (forwardedHost) {
+      if (forwardedHost && forwardedHost !== "null") {
         origin = `https://${forwardedHost}`;
       } else {
         origin = origin.replace(/^http:/, 'https:');
