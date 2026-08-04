@@ -39,15 +39,24 @@ const AuthClientPage = () => {
       if (provider === "google") queryParams.prompt = "select_account";
       if (provider === "kakao") queryParams.prompt = "login";
 
-      let origin = process.env.NEXT_PUBLIC_SITE_URL || "https://ai-dreamteller.com";
+      let origin = "https://ai-dreamteller.com";
+      if (typeof process !== "undefined" && process.env.NEXT_PUBLIC_SITE_URL) {
+        origin = process.env.NEXT_PUBLIC_SITE_URL;
+      }
+      
       if (typeof window !== "undefined") {
         const winOrigin = window.location.origin;
         const winHost = window.location.host;
         if (winOrigin && winOrigin !== "null" && winOrigin.startsWith("http")) {
           origin = winOrigin;
         } else if (winHost && winHost !== "null") {
-          origin = `${window.location.protocol}//${winHost}`;
+          origin = `${window.location.protocol === 'http:' || window.location.protocol === 'https:' ? window.location.protocol : 'https:'}//${winHost}`;
         }
+      }
+      
+      // 운영 환경(모바일 등)에서 origin이 localhost로 잡히는 최악의 경우를 방지
+      if (origin.includes("localhost") && typeof window !== "undefined" && !window.location.href.includes("localhost")) {
+        origin = "https://ai-dreamteller.com";
       }
       
       const { data, error } = await supabase.auth.signInWithOAuth({
