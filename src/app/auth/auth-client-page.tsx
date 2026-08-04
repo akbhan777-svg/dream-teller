@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Sparkles, Loader2 } from "lucide-react";
 import Image from "next/image";
+import { createClient } from "@/lib/supabase/client";
 
 // 개발 환경과 프로덕트 환경의 도메인을 동적으로 획득하는 헬퍼 함수
 const getRedirectURL = () => {
@@ -32,23 +33,27 @@ const AuthClientPage = () => {
     }
 
     try {
-      // 1단계: 백엔드 API인 /api/auth/login을 호출
-      const response = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      const supabase = createClient();
+      
+      let queryParams: Record<string, string> = {};
+      if (provider === "google") queryParams.prompt = "select_account";
+      if (provider === "kakao") queryParams.prompt = "login";
+
+      const origin = typeof window !== "undefined" ? window.location.origin : "";
+      
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: `${origin}/api/auth/callback`,
+          queryParams: Object.keys(queryParams).length > 0 ? queryParams : undefined,
         },
-        body: JSON.stringify({ provider }),
       });
 
-      const data = await response.json();
-
-      if (!response.ok || !data.url) {
-        throw new Error(data.error || "소셜 로그인 요청 실패");
+      if (error) {
+        throw error;
       }
-
-      // 2단계: Supabase가 반환한 구글/카카오 OAuth 페이지로 리다이렉트
-      window.location.href = data.url;
+      
+      // signInWithOAuth automatically redirects the browser if data.url is returned
     } catch (error) {
       console.error(`${provider} 로그인 처리 중 오류 발생:`, error);
       alert("로그인 처리 중 에러가 발생했습니다. 다시 시도해 주세요.");
