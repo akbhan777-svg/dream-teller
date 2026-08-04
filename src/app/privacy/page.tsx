@@ -9,7 +9,7 @@ export const metadata = {
 };
 
 export default function PrivacyPage() {
-  const lastUpdated = "2026년 7월 15일";
+  const lastUpdated = "2026년 8월 4일";
 
   return (
     <main className="min-h-screen bg-background relative overflow-hidden pt-28 pb-20 px-4">
@@ -45,7 +45,7 @@ export default function PrivacyPage() {
                 1. 수집하는 개인정보 항목 및 수집 방법
               </h2>
               <p>
-                회사는 비회원 주문 조회 및 회원 소셜 로그인 서비스를 제공하기 위해 아래와 같은 최소한의 개인정보를 수집하고 있습니다.
+                회사는 원활한 고객 상담(CS), 결제 취소 및 환불 처리, 주문 조회 등을 제공하기 위해 아래와 같은 최소한의 개인정보를 필수적으로 수집하고 있습니다.
               </p>
               <div className="bg-[#13131b] border border-white/10 rounded-xl p-4 space-y-2">
                 <p className="flex items-start gap-2">
@@ -54,7 +54,7 @@ export default function PrivacyPage() {
                 </p>
                 <p className="flex items-start gap-2">
                   <CheckCircle2 className="w-4 h-4 text-dream-blue-light mt-1 flex-shrink-0" />
-                  <span><strong>회원 소셜 로그인 시:</strong> 소셜 제공기관(구글, 카카오)에서 제공하는 고유 식별 ID, 닉네임, 프로필 이메일 정보</span>
+                  <span><strong>회원 소셜 로그인 시:</strong> 소셜 제공기관(구글, 카카오)에서 제공하는 고유 식별 ID, 닉네임, 프로필 이메일 정보 및 <strong>고객 확인·환불 처리를 위해 회원이 직접 입력한 연락처(전화번호)</strong></span>
                 </p>
                 <p className="flex items-start gap-2">
                   <CheckCircle2 className="w-4 h-4 text-dream-blue-light mt-1 flex-shrink-0" />
@@ -146,7 +146,7 @@ export default function PrivacyPage() {
                 6. 정보주체와 법정대리인의 권리·의무 및 행사방법
               </h2>
               <p>
-                이용자는 언제든지 등록되어 있는 자신의 개인정보를 조회하거나 수정할 수 있으며 가입해지 및 데이터 완전 삭제(탈퇴)를 요청할 수 있습니다. 
+                이용자는 언제든지 <strong>마이페이지</strong> 등을 통해 등록되어 있는 자신의 개인정보(연락처 등)를 조회하거나 수정할 수 있으며, 가입해지 및 데이터 완전 삭제(탈퇴)를 요청할 수 있습니다. 
                 비회원의 경우 언제든지 브라우저 임시 세션 삭제 혹은 문의하기 채널을 통해 본인 확인 후 이전 주문 내역의 완전 삭제를 요청하실 수 있습니다.
               </p>
             </section>

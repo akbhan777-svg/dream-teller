@@ -594,7 +594,7 @@ export default function DreamTellerForm() {
                       <div className="mt-4 flex items-center gap-3 p-3 rounded-lg bg-black/40 border border-white/10" onClick={(e) => e.stopPropagation()}>
                         <input type="checkbox" id="includeImage" checked={includeImage} onChange={(e) => setIncludeImage(e.target.checked)} className="w-4 h-4 accent-dream-pink" />
                         <label htmlFor="includeImage" className="text-sm text-slate-300 cursor-pointer flex-1">
-                          AI 시각화 이미지 추가 (+200원)
+                          AI 아트워크 이미지 추가 (+200원)
                         </label>
                       </div>
                     )}

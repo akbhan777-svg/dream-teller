@@ -9,7 +9,7 @@ export const metadata = {
 };
 
 export default function TermsPage() {
-  const lastUpdated = "2026년 7월 15일";
+  const lastUpdated = "2026년 8월 4일";
 
   return (
     <main className="min-h-screen bg-background relative overflow-hidden pt-28 pb-20 px-4">
@@ -79,11 +79,11 @@ export default function TermsPage() {
                 </p>
                 <p className="flex items-start gap-2">
                   <CheckCircle2 className="w-4 h-4 text-dream-blue-light mt-1 flex-shrink-0" />
-                  <span><strong>환불 불가 조건:</strong> AI 분석 파이프라인이 기동되어 연산이 완료된 1회성 완성본 리포트에 대해서는 디지털 콘텐츠 특성상 중도 청약철회 및 대금 반환이 절대 불가합니다.</span>
+                  <span><strong>환불 불가 조건:</strong> 전자상거래 등에서의 소비자보호에 관한 법률 제17조 제2항에 따라, AI 분석 파이프라인이 기동되어 연산이 완료된(제공이 개시된) 디지털 콘텐츠 리포트에 대해서는 청약철회 및 대금 반환이 불가합니다.</span>
                 </p>
                 <p className="flex items-start gap-2">
                   <CheckCircle2 className="w-4 h-4 text-dream-blue-light mt-1 flex-shrink-0" />
-                  <span><strong>다회권의 부분 환불:</strong> 패키지 횟수권 이용 도중 잔여 횟수를 취소 요청할 시, 사용한 횟수만큼의 단판 원가(1,500원 기준)를 차감한 잔여액을 환급해 드립니다.</span>
+                  <span><strong>다회권의 부분 환불:</strong> 패키지 횟수권 이용 도중 잔여 횟수를 취소 요청할 시, 사용한 횟수만큼의 단판 원가(1,190원 기준)를 차감한 잔여액을 환급해 드립니다.</span>
                 </p>
               </div>
             </section>
@@ -114,6 +114,21 @@ export default function TermsPage() {
               <ul className="list-disc pl-5 space-y-1 text-slate-400">
                 <li>Dream Teller 리포트는 정서 안정을 위한 분석 및 조언을 목표로 설계되었으며, 정신과 전문의의 의학적 진단이나 심리 처방을 대체하지 않습니다.</li>
                 <li>네트워크 및 클라우드(API 제공사) 인프라 장애로 인한 생성 지연이나 이미지 왜곡 결과에 대해 회사는 즉각적인 재처리를 수행하되 책임을 가중하지 않습니다.</li>
+              </ul>
+            </section>
+
+            <section className="space-y-3">
+              <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                <span className="w-1.5 h-4 bg-dream-purple rounded-full" />
+                제6조 (분쟁의 해결 및 관할법원)
+              </h2>
+              <p>
+                본 약관과 관련하여 발생하는 분쟁에 대한 처리 및 관할법원은 다음과 같습니다.
+              </p>
+              <ul className="list-disc pl-5 space-y-1 text-slate-400">
+                <li>회사는 이용자가 제기하는 정당한 의견이나 불만을 반영하고 그 피해를 보상처리하기 위하여 피해보상처리기구를 설치 및 운영합니다.</li>
+                <li>회사와 이용자 간에 발생한 전자상거래 분쟁과 관련하여 이용자의 피해구제신청이 있는 경우에는 공정거래위원회 또는 시·도지사가 의뢰하는 분쟁조정기관의 조정에 따를 수 있습니다.</li>
+                <li>회사와 이용자 간에 발생한 분쟁에 관한 소송은 제소 당시의 이용자의 주소에 의하고, 주소가 없는 경우에는 거소를 관할하는 지방법원의 전속관할로 합니다.</li>
               </ul>
             </section>
 
