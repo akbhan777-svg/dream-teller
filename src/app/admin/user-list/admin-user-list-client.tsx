@@ -205,8 +205,10 @@ export default function AdminUserListClient({ initialUsers }: AdminUserListClien
                         <TableCell className="font-semibold text-sm">
                           {user.nickname || "비회원"}
                         </TableCell>
-                        <TableCell className="text-xs font-mono text-muted-foreground">
-                          {user.email || user.phone_number || "-"}
+                        <TableCell className="text-xs font-mono text-muted-foreground flex flex-col gap-1">
+                          {user.email && <span>{user.email}</span>}
+                          {user.phone_number && <span className="text-dream-pink/80">{user.phone_number}</span>}
+                          {!user.email && !user.phone_number && <span>-</span>}
                         </TableCell>
                         <TableCell>
                           <Badge
