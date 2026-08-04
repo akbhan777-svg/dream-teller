@@ -41,6 +41,12 @@ export default function MyPageClient() {
   const [nickname, setNickname] = useState("로딩 중...");
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState("");
+  
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [isEditingPhone, setIsEditingPhone] = useState(false);
+  const [editPhoneValue, setEditPhoneValue] = useState("");
+  const [isSavingPhone, setIsSavingPhone] = useState(false);
+
   const [userRole, setUserRole] = useState<string>("user");
   const [remainingPasses, setRemainingPasses] = useState(0);
   const [email, setEmail] = useState("");
@@ -85,10 +91,13 @@ export default function MyPageClient() {
           provider?: "google" | "kakao";
           role?: string;
           remaining_interprets?: number;
+          phone_number?: string;
         };
         setNickname(userProf.nickname || "사용자");
         setEditValue(userProf.nickname || "사용자");
         setEmail(userProf.email || "");
+        setPhoneNumber(userProf.phone_number || "");
+        setEditPhoneValue(userProf.phone_number || "");
         setLoginProvider((userProf.provider as "google" | "kakao") || "google");
         setUserRole(userProf.role || "user");
         setRemainingPasses(userProf.remaining_interprets || 0);
@@ -263,6 +272,37 @@ export default function MyPageClient() {
     setIsEditing(false);
   };
 
+  const handleSavePhone = async () => {
+    if (!editPhoneValue.trim()) return;
+    setIsSavingPhone(true);
+
+    try {
+      const response = await fetch("/api/users/me", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone_number: editPhoneValue }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "연락처 업데이트 실패");
+      }
+
+      setPhoneNumber(editPhoneValue);
+      setIsEditingPhone(false);
+    } catch (error: any) {
+      console.error("연락처 변경 실패:", error);
+      alert(error.message || "연락처를 변경하는 도중 오류가 발생했습니다.");
+    } finally {
+      setIsSavingPhone(false);
+    }
+  };
+
+  const handleCancelEditPhone = () => {
+    setEditPhoneValue(phoneNumber);
+    setIsEditingPhone(false);
+  };
+
   const handleDateClick = (date: Date) => {
     // 이미 선택된 날짜를 다시 클릭하면 필터 해제
     if (selectedDate && date.getTime() === selectedDate.getTime()) {
@@ -388,6 +428,50 @@ export default function MyPageClient() {
                     </span>
                   )}
                   <span>{email}</span>
+                </div>
+                
+                {/* 연락처 수정 폼 */}
+                <div className="flex items-center gap-2 mt-1">
+                  {isEditingPhone ? (
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="tel"
+                        value={editPhoneValue}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/[^\d]/g, "");
+                          let formatted = val;
+                          if (val.length > 3 && val.length <= 7) formatted = `${val.slice(0, 3)}-${val.slice(3)}`;
+                          else if (val.length > 7) formatted = `${val.slice(0, 3)}-${val.slice(3, 7)}-${val.slice(7, 11)}`;
+                          setEditPhoneValue(formatted);
+                        }}
+                        maxLength={13}
+                        placeholder="010-0000-0000"
+                        className="bg-white/10 border border-white/20 rounded-lg px-2 py-0.5 text-white text-sm focus:outline-none focus:border-dream-pink w-36"
+                      />
+                      <button 
+                        onClick={handleSavePhone} 
+                        disabled={isSavingPhone || editPhoneValue.length < 12}
+                        className="p-1 hover:bg-white/10 rounded text-green-400 disabled:opacity-50"
+                      >
+                        {isSavingPhone ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                      </button>
+                      <button onClick={handleCancelEditPhone} className="p-1 hover:bg-white/10 rounded text-red-400">
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <span className="text-sm text-dream-pink/90 font-mono">
+                        {phoneNumber || "연락처 미등록"}
+                      </span>
+                      <button
+                        onClick={() => setIsEditingPhone(true)}
+                        className="p-1 text-slate-400 hover:text-white hover:bg-white/5 rounded transition-colors"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+                    </>
+                  )}
                 </div>
                 
                 {/* 로그아웃 버튼 이메일 하단에 배치 */}
