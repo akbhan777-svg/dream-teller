@@ -22,6 +22,15 @@ const AuthClientPage = () => {
   const handleSocialLogin = async (provider: "google" | "kakao") => {
     setIsLoading(provider);
 
+    // 로그인 진행 전 비회원 세션이 남아있어 충돌하는 것을 방지
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem("guestLoginPhone");
+      sessionStorage.removeItem("guestLoginPassword");
+      sessionStorage.removeItem("guestPhone");
+      sessionStorage.removeItem("guestPassword");
+      sessionStorage.removeItem("activeOrderId");
+    }
+
     try {
       // 1단계: 백엔드 API인 /api/auth/login을 호출
       const response = await fetch("/api/auth/login", {

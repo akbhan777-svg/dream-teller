@@ -60,6 +60,15 @@ const Header = () => {
         const currentUser = session?.user ?? null;
         setUser(currentUser);
         await checkUserRole(currentUser);
+        
+        // 회원이 성공적으로 로그인된 상태라면, 남아있는 비회원 세션 정보를 모두 정리하여 충돌 방지
+        if (currentUser && typeof window !== "undefined") {
+          sessionStorage.removeItem("guestLoginPhone");
+          sessionStorage.removeItem("guestLoginPassword");
+          sessionStorage.removeItem("guestPhone");
+          sessionStorage.removeItem("guestPassword");
+          sessionStorage.removeItem("activeOrderId");
+        }
       } catch (err) {
         console.error("세션 획득 에러:", err);
       } finally {
