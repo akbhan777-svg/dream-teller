@@ -56,7 +56,7 @@ export const GET = async (request: Request) => {
 
   let redirectUrl = `${requestUrl.origin}${next}`;
   if (!isLocalEnv) {
-    if (forwardedHost) {
+    if (forwardedHost && forwardedHost !== "null") {
       redirectUrl = `https://${forwardedHost}${next}`;
     } else {
       redirectUrl = requestUrl.origin.replace(/^http:/, 'https:') + next;

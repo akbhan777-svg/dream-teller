@@ -39,7 +39,16 @@ const AuthClientPage = () => {
       if (provider === "google") queryParams.prompt = "select_account";
       if (provider === "kakao") queryParams.prompt = "login";
 
-      const origin = typeof window !== "undefined" ? window.location.origin : "";
+      let origin = "";
+      if (typeof window !== "undefined") {
+        origin = window.location.origin;
+        if (!origin || origin === "null") {
+          origin = `${window.location.protocol}//${window.location.host}`;
+        }
+      }
+      if (!origin || origin === "null") {
+        origin = process.env.NEXT_PUBLIC_SITE_URL || "https://ai-dreamteller.com";
+      }
       
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider,
@@ -53,7 +62,9 @@ const AuthClientPage = () => {
         throw error;
       }
       
-      // signInWithOAuth automatically redirects the browser if data.url is returned
+      if (data?.url) {
+        window.location.href = data.url;
+      }
     } catch (error) {
       console.error(`${provider} 로그인 처리 중 오류 발생:`, error);
       alert("로그인 처리 중 에러가 발생했습니다. 다시 시도해 주세요.");
