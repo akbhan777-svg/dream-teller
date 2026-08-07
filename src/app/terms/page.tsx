@@ -85,6 +85,10 @@ export default function TermsPage() {
                   <CheckCircle2 className="w-4 h-4 text-dream-blue-light mt-1 flex-shrink-0" />
                   <span><strong>다회권의 부분 환불:</strong> 패키지 횟수권 이용 도중 잔여 횟수를 취소 요청할 시, 사용한 횟수만큼의 단판 원가(1,190원 기준)를 차감한 잔여액을 환급해 드립니다.</span>
                 </p>
+                <p className="flex items-start gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-dream-blue-light mt-1 flex-shrink-0" />
+                  <span><strong>다회권의 유효기간 및 소멸:</strong> 구매한 다회권(패키지 횟수권)의 잔여 횟수 유효기간은 결제일로부터 최대 3개월(90일)입니다. 3개월 경과 후 미사용 잔여 횟수는 자동 소멸되며 환불되지 않습니다.</span>
+                </p>
               </div>
             </section>
 

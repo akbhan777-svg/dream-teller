@@ -17,7 +17,7 @@ const HeroSection = () => {
         {/* 압도적인 크기의 타이포그래피 */}
         <h1 className="animate-fade-in-up text-4xl font-black tracking-tighter sm:text-5xl md:text-[4.2rem] lg:text-[5.25rem] leading-[1.1]">
           <span className="block text-white drop-shadow-2xl opacity-95">어젯밤 꿈,</span>
-          <span className="text-aurora-gradient mt-2 block drop-shadow-2xl pb-4">아직 기억나시나요?</span>
+          <span className="text-aurora-gradient mt-2 block drop-shadow-2xl pb-4">그 꿈의 신호를 확인하세요!</span>
         </h1>
 
         <p className="animate-fade-in-up-delay-1 mx-auto max-w-2xl text-lg text-slate-300 md:text-2xl leading-relaxed font-medium">

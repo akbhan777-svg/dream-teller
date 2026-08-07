@@ -113,8 +113,8 @@ export async function POST(request: Request) {
     }
 
     // 3-3. 다회권 구매 시 충전 및 입력한 꿈 1회 차감/해몽 즉시 처리 (회원일 경우만)
-    if (order.order_type === "pass_charge_5" || order.order_type === "pass_charge_10") {
-      const chargeAmount = order.order_type === "pass_charge_5" ? 5 : 10;
+    if (order.order_type === "pass_charge_3" || order.order_type === "pass_charge_5" || order.order_type === "pass_charge_10") {
+      const chargeAmount = order.order_type === "pass_charge_3" ? 3 : order.order_type === "pass_charge_5" ? 5 : 10;
       const hasDreamContent = order.dream_content && order.dream_content.trim().length > 0;
       const deductAmount = hasDreamContent ? 1 : 0;
       const netIncrease = chargeAmount - deductAmount;

@@ -15,7 +15,7 @@ const MemberOnlyModal = dynamic(
 
 type Step = 1 | 2 | 3 | 4;
 type ExpertField = "freud" | "jung" | "neuroscience" | "gestalt" | null;
-type PaymentOption = "single" | "pass5" | "pass10" | "use_pass" | null;
+type PaymentOption = "single" | "pass3" | "pass5" | "use_pass" | null;
 
 const EXPERTS = [
   { id: "freud", name: "프로이트", desc: "무의식의 억압된 욕망과 상징을 해독합니다.", icon: Eye },
@@ -113,8 +113,8 @@ export default function DreamTellerForm() {
   // Calculate total amount
   const calculateTotal = () => {
     if (paymentOption === "use_pass") return 0;
-    if (paymentOption === "pass5") return 4760;
-    if (paymentOption === "pass10") return 8330;
+    if (paymentOption === "pass3") return 2850;
+    if (paymentOption === "pass5") return 4460;
     // single
     return 990 + (includeImage ? 200 : 0);
   };
@@ -150,7 +150,7 @@ export default function DreamTellerForm() {
 
   // 결제 옵션 선택 시 비회원은 다회권(pass5, pass10) 제한 및 팝업 안내
   const handlePaymentOptionSelect = (option: PaymentOption) => {
-    if (!isLoggedIn && (option === "pass5" || option === "pass10")) {
+    if (!isLoggedIn && (option === "pass3" || option === "pass5")) {
       setShowMemberOnlyModal(true);
       return;
     }
@@ -167,7 +167,7 @@ export default function DreamTellerForm() {
   const idempotencyKeyRef = useRef<string>("");
 
   const handlePayment = () => {
-    if (!isLoggedIn && (paymentOption === "pass5" || paymentOption === "pass10")) {
+    if (!isLoggedIn && (paymentOption === "pass3" || paymentOption === "pass5")) {
       setShowMemberOnlyModal(true);
       return;
     }
@@ -523,7 +523,7 @@ export default function DreamTellerForm() {
             {paymentOption && !isStepOpen(4) && (
               <div className="flex items-center gap-2">
                 <span className="text-xs text-slate-300 font-normal bg-white/10 px-2.5 py-1 rounded-md border border-white/5">
-                  {paymentOption === "single" ? "1회권" : paymentOption === "pass5" ? "5회권" : "10회권"}
+                  {paymentOption === "single" ? "1회권" : paymentOption === "pass3" ? "3회권" : "5회권"}
                 </span>
                 <CheckCircle2 className="w-5 h-5 text-dream-blue-light" />
                 <span className="text-xs text-dream-purple-light hover:text-white transition-colors ml-1 font-semibold">펼쳐보기</span>
@@ -605,37 +605,37 @@ export default function DreamTellerForm() {
                 </div>
               </label>
 
-              {/* 5회권 */}
-              <label className={cn("flex items-start justify-between p-5 rounded-xl border cursor-pointer transition-all relative overflow-hidden", paymentOption === "pass5" ? "border-dream-purple bg-dream-purple/20 shadow-[0_0_15px_rgba(139,92,246,0.15)]" : "border-white/20 bg-[#13131b] hover:bg-[#1a1a24] hover:border-white/30")}>
+              {/* 3회권 */}
+              <label className={cn("flex items-start justify-between p-5 rounded-xl border cursor-pointer transition-all relative overflow-hidden", paymentOption === "pass3" ? "border-dream-purple bg-dream-purple/20 shadow-[0_0_15px_rgba(139,92,246,0.15)]" : "border-white/20 bg-[#13131b] hover:bg-[#1a1a24] hover:border-white/30")}>
                 <div className="absolute top-0 right-0 bg-dream-purple text-white text-xs font-bold px-3 py-1 rounded-bl-lg shadow-md z-10">총 20% 할인(이미지 포함)</div>
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -skew-x-12 translate-x-[-100%] group-hover:animate-shimmer" />
                 <div className="flex items-start gap-4 relative z-10">
-                  <input type="radio" name="payment" checked={paymentOption === "pass5"} onChange={() => handlePaymentOptionSelect("pass5")} className="mt-1 w-4 h-4 accent-dream-purple" />
+                  <input type="radio" name="payment" checked={paymentOption === "pass3"} onChange={() => handlePaymentOptionSelect("pass3")} className="mt-1 w-4 h-4 accent-dream-purple" />
                   <div>
-                    <h3 className="text-lg font-bold text-white">5회 해석권 (다회권)</h3>
+                    <h3 className="text-lg font-bold text-white">3회 해석권 (다회권)</h3>
                     <p className="text-slate-400 text-sm mt-1">회원 전용 할인 요금제. 이미지 생성 옵션 포함입니다.</p>
                   </div>
                 </div>
                 <div className="text-right mt-6 relative z-10">
-                  <div className="text-sm text-slate-500 line-through">5,950원</div>
-                  <div className="text-xl font-bold text-dream-purple-light">4,760원</div>
+                  <div className="text-sm text-slate-500 line-through">3,570원</div>
+                  <div className="text-xl font-bold text-dream-purple-light">2,850원</div>
                 </div>
               </label>
 
-              {/* 10회권 */}
-              <label className={cn("flex items-start justify-between p-5 rounded-xl border cursor-pointer transition-all relative overflow-hidden", paymentOption === "pass10" ? "border-dream-pink bg-dream-pink/20 shadow-[0_0_15px_rgba(236,72,153,0.15)]" : "border-white/20 bg-[#13131b] hover:bg-[#1a1a24] hover:border-white/30")}>
-                <div className="absolute top-0 right-0 bg-dream-pink text-white text-xs font-bold px-3 py-1 rounded-bl-lg shadow-md z-10">총 30% 할인(이미지 포함)</div>
+              {/* 5회권 */}
+              <label className={cn("flex items-start justify-between p-5 rounded-xl border cursor-pointer transition-all relative overflow-hidden", paymentOption === "pass5" ? "border-dream-pink bg-dream-pink/20 shadow-[0_0_15px_rgba(236,72,153,0.15)]" : "border-white/20 bg-[#13131b] hover:bg-[#1a1a24] hover:border-white/30")}>
+                <div className="absolute top-0 right-0 bg-dream-pink text-white text-xs font-bold px-3 py-1 rounded-bl-lg shadow-md z-10">총 25% 할인(이미지 포함)</div>
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -skew-x-12 translate-x-[-100%] group-hover:animate-shimmer" />
                 <div className="flex items-start gap-4 relative z-10">
-                  <input type="radio" name="payment" checked={paymentOption === "pass10"} onChange={() => handlePaymentOptionSelect("pass10")} className="mt-1 w-4 h-4 accent-dream-pink" />
+                  <input type="radio" name="payment" checked={paymentOption === "pass5"} onChange={() => handlePaymentOptionSelect("pass5")} className="mt-1 w-4 h-4 accent-dream-pink" />
                   <div>
-                    <h3 className="text-lg font-bold text-white">10회 해석권 (다회권)</h3>
+                    <h3 className="text-lg font-bold text-white">5회 해석권 (다회권)</h3>
                     <p className="text-slate-400 text-sm mt-1">가장 높은 할인율. 이미지 생성 옵션 포함입니다.</p>
                   </div>
                 </div>
                 <div className="text-right mt-6 relative z-10">
-                  <div className="text-sm text-slate-500 line-through">11,900원</div>
-                  <div className="text-xl font-bold text-dream-pink-light">8,330원</div>
+                  <div className="text-sm text-slate-500 line-through">5,950원</div>
+                  <div className="text-xl font-bold text-dream-pink-light">4,460원</div>
                 </div>
               </label>
               

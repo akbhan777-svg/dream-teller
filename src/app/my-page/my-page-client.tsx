@@ -130,8 +130,9 @@ export default function MyPageClient() {
         // 결제 내역 바인딩
         const mappedPurchases: PurchaseHistoryItem[] = ordersData.map((order: any) => {
           let itemName = "1회 해석권 (단판)";
-          if (order.order_type === "pass_charge_5") itemName = "5회 해석권 (다회권)";
-          else if (order.order_type === "pass_charge_10") itemName = "10회 해석권 (다회권)";
+          if (order.order_type === "pass_charge_3") itemName = "3회 해석권 (다회권)";
+          else if (order.order_type === "pass_charge_5") itemName = "5회 해석권 (다회권)";
+          else if (order.order_type === "pass_charge_10") itemName = "이전 10회 해석권 (다회권)";
           else if (order.order_type === "pass_use") itemName = "보유 잔여 횟수 사용";
           else if (order.includes_image) itemName = "1회 해석권 (단판 + AI 이미지)";
 

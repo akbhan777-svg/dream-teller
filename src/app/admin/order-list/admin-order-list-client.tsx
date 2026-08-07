@@ -190,7 +190,7 @@ export default function AdminOrderListClient({ initialOrders }: AdminOrderListCl
                     const basePasses = adminCharge > 0 && displayRemainingPasses !== undefined ? displayRemainingPasses - adminCharge : displayRemainingPasses;
                     
                     let aiStatusBadge = <Badge variant="outline" className="text-muted-foreground">대기중</Badge>;
-                    if (order.order_type === "pass_charge_5" || order.order_type === "pass_charge_10") {
+                    if (order.order_type === "pass_charge_3" || order.order_type === "pass_charge_5" || order.order_type === "pass_charge_10") {
                       aiStatusBadge = <Badge variant="secondary" className="text-xs bg-slate-100 dark:bg-slate-800 text-slate-500 border-slate-200">이용권 충전건</Badge>;
                     } else if (order.dream_results) {
                        const aiStatus = Array.isArray(order.dream_results) 

@@ -186,7 +186,7 @@ export async function POST(request: Request) {
 
         let imageUrl = null;
 
-        const isPassOrder = ["pass_use", "pass_charge_5", "pass_charge_10"].includes(order.order_type);
+        const isPassOrder = ["pass_use", "pass_charge_3", "pass_charge_5", "pass_charge_10"].includes(order.order_type);
         const shouldGenerateImage = order.includes_image || isPassOrder;
 
         let englishImagePrompt = "A breathtaking wide-angle surreal dreamscape, scenic nature background fantasy landscape painting, masterpiece, 8k resolution, ultra detailed, photorealistic, luxury aesthetic, cinematic lighting, 8k uhd, raytracing, no faces";
