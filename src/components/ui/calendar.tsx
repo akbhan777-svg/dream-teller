@@ -34,7 +34,7 @@ export function Calendar({ highlightedDates = [], onDateClick, className }: Cale
   };
 
   return (
-    <div className={cn("p-2 sm:p-3 bg-[#1c1c21]/80 backdrop-blur-md rounded-xl border border-white/10 w-full max-w-full sm:max-w-[320px] mx-auto", className)}>
+    <div className={cn("bg-[#1c1c21]/80 backdrop-blur-md rounded-xl border border-white/10 w-full max-w-full sm:max-w-[320px] mx-auto p-2 sm:p-3 touch-manipulation", className)}>
       <div className="flex justify-between items-center mb-4 px-2">
         <button onClick={prevMonth} className="p-1 hover:bg-white/10 rounded-md transition-colors text-slate-300">
           <ChevronLeft className="w-5 h-5" />
@@ -47,15 +47,15 @@ export function Calendar({ highlightedDates = [], onDateClick, className }: Cale
         </button>
       </div>
 
-      <div className="grid grid-cols-7 gap-1 text-center mb-2">
+      <div className="grid grid-cols-7 gap-0.5 sm:gap-1 text-center mb-2">
         {["일", "월", "화", "수", "목", "금", "토"].map(day => (
-          <div key={day} className="text-xs font-medium text-slate-500 py-1">{day}</div>
+          <div key={day} className="text-[10px] sm:text-xs font-medium text-slate-500 py-1">{day}</div>
         ))}
       </div>
 
-      <div className="grid grid-cols-7 gap-1">
+      <div className="grid grid-cols-7 gap-0.5 sm:gap-1">
         {blanks.map((blank) => (
-          <div key={`blank-${blank}`} className="p-2"></div>
+          <div key={`blank-${blank}`} className="p-1 sm:p-2"></div>
         ))}
         {days.map((day) => {
           const highlighted = isHighlighted(day);
@@ -64,7 +64,7 @@ export function Calendar({ highlightedDates = [], onDateClick, className }: Cale
               key={day}
               onClick={() => onDateClick && onDateClick(new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day))}
               className={cn(
-                "h-7 w-7 sm:h-8 sm:w-8 mx-auto flex items-center justify-center rounded-full text-xs sm:text-sm transition-all relative group",
+                "aspect-square w-full max-w-[28px] sm:max-w-[32px] mx-auto flex items-center justify-center rounded-full text-[10px] sm:text-sm transition-all relative group touch-manipulation",
                 highlighted 
                   ? "bg-dream-purple text-white shadow-[0_0_15px_rgba(139,92,246,0.6)] font-bold hover:bg-dream-purple-light" 
                   : "text-slate-300 hover:bg-white/10"
