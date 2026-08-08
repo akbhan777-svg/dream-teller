@@ -522,16 +522,16 @@ export default function MyPageClient() {
         {/* 캘린더 카드 */}
         <div className="md:col-span-5 relative">
           <div className="absolute -inset-1 bg-dream-blue/20 blur-xl rounded-[2rem] opacity-40 pointer-events-none" />
-          <div className="relative bg-[#1c1c21]/80 backdrop-blur-xl border border-white/10 rounded-2xl p-4 sm:p-6 overflow-hidden">
-            <div className="flex items-center gap-2 mb-4 sm:mb-6">
+          <div className="relative bg-[#1c1c21]/80 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
+            <div className="flex items-center gap-2 mb-6">
               <CalendarDays className="w-5 h-5 text-dream-blue-light" />
               <h3 className="text-lg font-bold text-white">나의 무의식 캘린더</h3>
             </div>
-            <div className="w-full overflow-x-auto pb-2 flex justify-center scrollbar-hide">
+            <div className="w-full flex justify-center pb-2">
               <Calendar 
                 highlightedDates={highlightedDates} 
                 onDateClick={handleDateClick}
-                className="max-w-none w-full min-w-[280px]"
+                className="max-w-none w-full"
               />
             </div>
             <p className="text-xs text-slate-500 mt-2 sm:mt-4 text-center break-keep">
@@ -544,7 +544,7 @@ export default function MyPageClient() {
         <div className="md:col-span-7 space-y-6">
           
           {/* 과거 꿈 해몽 내역 */}
-          <div className="bg-[#1c1c21]/80 backdrop-blur-xl border border-white/10 rounded-2xl p-4 sm:p-6 overflow-hidden">
+          <div className="bg-[#1c1c21]/80 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <History className="w-5 h-5 text-dream-purple-light" />
@@ -685,7 +685,7 @@ export default function MyPageClient() {
           </div>
 
           {/* 결제 및 충전 내역 */}
-          <div className="bg-[#1c1c21]/80 backdrop-blur-xl border border-white/10 rounded-2xl p-4 sm:p-6 overflow-hidden">
+          <div className="bg-[#1c1c21]/80 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
             <div className="flex items-center gap-2 mb-4">
               <CreditCard className="w-5 h-5 text-dream-blue-light" />
               <h3 className="text-lg font-bold text-white">구매 및 충전 내역</h3>

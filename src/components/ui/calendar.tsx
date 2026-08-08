@@ -34,7 +34,7 @@ export function Calendar({ highlightedDates = [], onDateClick, className }: Cale
   };
 
   return (
-    <div className={cn("p-3 bg-[#1c1c21]/80 backdrop-blur-md rounded-xl border border-white/10 w-full max-w-[320px] mx-auto", className)}>
+    <div className={cn("p-2 sm:p-3 bg-[#1c1c21]/80 backdrop-blur-md rounded-xl border border-white/10 w-full max-w-full sm:max-w-[320px] mx-auto", className)}>
       <div className="flex justify-between items-center mb-4 px-2">
         <button onClick={prevMonth} className="p-1 hover:bg-white/10 rounded-md transition-colors text-slate-300">
           <ChevronLeft className="w-5 h-5" />
@@ -64,7 +64,7 @@ export function Calendar({ highlightedDates = [], onDateClick, className }: Cale
               key={day}
               onClick={() => onDateClick && onDateClick(new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day))}
               className={cn(
-                "h-8 w-8 mx-auto flex items-center justify-center rounded-full text-sm transition-all relative group",
+                "h-7 w-7 sm:h-8 sm:w-8 mx-auto flex items-center justify-center rounded-full text-xs sm:text-sm transition-all relative group",
                 highlighted 
                   ? "bg-dream-purple text-white shadow-[0_0_15px_rgba(139,92,246,0.6)] font-bold hover:bg-dream-purple-light" 
                   : "text-slate-300 hover:bg-white/10"
