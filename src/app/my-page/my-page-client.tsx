@@ -517,12 +517,12 @@ export default function MyPageClient() {
       </section>
 
       {/* 2. 무의식 캘린더 섹션 */}
-      <section className="grid md:grid-cols-12 gap-8 items-start">
+      <section className="grid md:grid-cols-12 gap-8 items-start w-full min-w-0">
         
         {/* 캘린더 카드 */}
-        <div className="md:col-span-5 relative">
+        <div className="md:col-span-5 relative w-full min-w-0">
           <div className="absolute -inset-1 bg-dream-blue/20 blur-xl rounded-[2rem] opacity-40 pointer-events-none" />
-          <div className="relative bg-[#1c1c21]/80 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
+          <div className="relative bg-[#1c1c21]/80 backdrop-blur-xl border border-white/10 rounded-2xl p-6 w-full min-w-0 overflow-hidden">
             <div className="flex items-center gap-2 mb-6">
               <CalendarDays className="w-5 h-5 text-dream-blue-light" />
               <h3 className="text-lg font-bold text-white">나의 무의식 캘린더</h3>
@@ -534,17 +534,17 @@ export default function MyPageClient() {
                 className="max-w-none w-full"
               />
             </div>
-            <p className="text-xs text-slate-500 mt-2 sm:mt-4 text-center break-keep">
+            <p className="text-xs text-slate-500 mt-2 sm:mt-4 text-center break-words">
               * 보라색으로 강조된 날짜를 클릭하면 해당 해몽 리포트로 이동합니다.
             </p>
           </div>
         </div>
 
         {/* 3. 내역 리스트 (과거 꿈 해몽 기록 + 결제 내역) */}
-        <div className="md:col-span-7 space-y-6">
+        <div className="md:col-span-7 space-y-6 w-full min-w-0">
           
           {/* 과거 꿈 해몽 내역 */}
-          <div className="bg-[#1c1c21]/80 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
+          <div className="bg-[#1c1c21]/80 backdrop-blur-xl border border-white/10 rounded-2xl p-6 w-full min-w-0 overflow-hidden">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <History className="w-5 h-5 text-dream-purple-light" />
@@ -625,7 +625,7 @@ export default function MyPageClient() {
                         </div>
                       )}
 
-                      <div className="space-y-1 min-w-0">
+                      <div className="space-y-1 min-w-0 flex-1">
                         <p className={cn(
                           "text-sm font-semibold truncate transition-colors",
                           item.status === "analyzing" ? "text-dream-pink-light font-bold" : "text-white group-hover:text-dream-purple-light"
@@ -685,7 +685,7 @@ export default function MyPageClient() {
           </div>
 
           {/* 결제 및 충전 내역 */}
-          <div className="bg-[#1c1c21]/80 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
+          <div className="bg-[#1c1c21]/80 backdrop-blur-xl border border-white/10 rounded-2xl p-6 w-full min-w-0 overflow-hidden">
             <div className="flex items-center gap-2 mb-4">
               <CreditCard className="w-5 h-5 text-dream-blue-light" />
               <h3 className="text-lg font-bold text-white">구매 및 충전 내역</h3>
@@ -698,12 +698,12 @@ export default function MyPageClient() {
                 </div>
               ) : (
                 purchaseHistory.slice(0, visiblePurchases).map((item) => (
-                  <div key={item.id} className="py-3 flex justify-between items-center gap-4">
-                    <div className="space-y-1">
-                      <p className="text-sm font-semibold text-slate-200">{item.itemName}</p>
-                      <p className="text-xs text-slate-500">{item.date}</p>
+                  <div key={item.id} className="py-3 flex justify-between items-center gap-2 sm:gap-4 w-full min-w-0">
+                    <div className="space-y-1 min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-slate-200 truncate">{item.itemName}</p>
+                      <p className="text-xs text-slate-500 truncate">{item.date}</p>
                     </div>
-                    <div className="text-right">
+                    <div className="text-right shrink-0">
                       <p className="text-sm font-bold text-white">{item.price.toLocaleString()}원</p>
                       <p className="text-[10px] text-dream-blue-light font-medium">{item.status}</p>
                     </div>
