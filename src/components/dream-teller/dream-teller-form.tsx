@@ -92,7 +92,7 @@ export default function DreamTellerForm() {
   // Form State
   const [expert, setExpert] = useState<ExpertField>(null);
   const [dreamContent, setDreamContent] = useState("");
-  const [includeImage, setIncludeImage] = useState(true);
+  const [includeImage, setIncludeImage] = useState(false);
   const [paymentOption, setPaymentOption] = useState<PaymentOption>("single");
 
   // 비회원 입력 정보 State
@@ -113,10 +113,10 @@ export default function DreamTellerForm() {
   // Calculate total amount
   const calculateTotal = () => {
     if (paymentOption === "use_pass") return 0;
-    if (paymentOption === "pass3") return 2850;
-    if (paymentOption === "pass5") return 4460;
+    if (paymentOption === "pass3") return 3600;
+    if (paymentOption === "pass5") return 5250;
     // single
-    return 990 + (includeImage ? 200 : 0);
+    return 1400 + (includeImage ? 100 : 0);
   };
 
   const scrollToStep = (step: Step) => {
@@ -594,14 +594,14 @@ export default function DreamTellerForm() {
                       <div className="mt-4 flex items-center gap-3 p-3 rounded-lg bg-black/40 border border-white/10" onClick={(e) => e.stopPropagation()}>
                         <input type="checkbox" id="includeImage" checked={includeImage} onChange={(e) => setIncludeImage(e.target.checked)} className="w-4 h-4 accent-dream-pink" />
                         <label htmlFor="includeImage" className="text-sm text-slate-300 cursor-pointer flex-1">
-                          AI 아트워크 이미지 추가 (+200원)
+                          AI 아트워크 이미지 추가 (+100원)
                         </label>
                       </div>
                     )}
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="text-xl font-bold text-white">990원</div>
+                  <div className="text-xl font-bold text-white">1,400원</div>
                 </div>
               </label>
 
@@ -617,14 +617,14 @@ export default function DreamTellerForm() {
                   </div>
                 </div>
                 <div className="text-right mt-6 relative z-10">
-                  <div className="text-sm text-slate-500 line-through">3,570원</div>
-                  <div className="text-xl font-bold text-dream-purple-light">2,850원</div>
+                  <div className="text-sm text-slate-500 line-through">4,500원</div>
+                  <div className="text-xl font-bold text-dream-purple-light">3,600원</div>
                 </div>
               </label>
 
               {/* 5회권 */}
               <label className={cn("flex items-start justify-between p-5 rounded-xl border cursor-pointer transition-all relative overflow-hidden", paymentOption === "pass5" ? "border-dream-pink bg-dream-pink/20 shadow-[0_0_15px_rgba(236,72,153,0.15)]" : "border-white/20 bg-[#13131b] hover:bg-[#1a1a24] hover:border-white/30")}>
-                <div className="absolute top-0 right-0 bg-dream-pink text-white text-xs font-bold px-3 py-1 rounded-bl-lg shadow-md z-10">총 25% 할인(이미지 포함)</div>
+                <div className="absolute top-0 right-0 bg-dream-pink text-white text-xs font-bold px-3 py-1 rounded-bl-lg shadow-md z-10">총 30% 할인(이미지 포함)</div>
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -skew-x-12 translate-x-[-100%] group-hover:animate-shimmer" />
                 <div className="flex items-start gap-4 relative z-10">
                   <input type="radio" name="payment" checked={paymentOption === "pass5"} onChange={() => handlePaymentOptionSelect("pass5")} className="mt-1 w-4 h-4 accent-dream-pink" />
@@ -634,8 +634,8 @@ export default function DreamTellerForm() {
                   </div>
                 </div>
                 <div className="text-right mt-6 relative z-10">
-                  <div className="text-sm text-slate-500 line-through">5,950원</div>
-                  <div className="text-xl font-bold text-dream-pink-light">4,460원</div>
+                  <div className="text-sm text-slate-500 line-through">7,500원</div>
+                  <div className="text-xl font-bold text-dream-pink-light">5,250원</div>
                 </div>
               </label>
               
@@ -659,7 +659,7 @@ export default function DreamTellerForm() {
                   className="w-5 h-5 rounded border-gray-400 text-red-500 focus:ring-red-500 bg-black/50 cursor-pointer"
                 />
                 <span className="text-sm font-semibold text-red-200 select-none">
-                  [필수] 결제 완료 시 즉시 AI 서비스가 제공되므로 청약철회(환불)가 불가함에 동의합니다.
+                  [필수] 결제 완료 시 즉시 AI 서비스가 제공되므로 청약철회(환불)가 불가하며, 다회권의 유효기간은 3개월임에 동의합니다.
                 </span>
               </label>
             </div>

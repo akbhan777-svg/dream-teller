@@ -35,11 +35,12 @@ const Footer = () => {
   /** 더미 사업자 정보 */
   // TODO: 실제 사업자 정보로 교체
   const businessInfo = {
-    companyName: "Dream Teller",
-    representative: "홍길동",
-    businessNumber: "000-00-00000",
-    address: "서울특별시 강남구 테헤란로 000, 00층",
-    email: "contact@dreamteller.kr",
+    companyName: "정주하우징",
+    representative: "반상훈",
+    businessNumber: "106-16-52689",
+    address: "경기도 평택시 고덕국제6로 50, 1403동 1501호",
+    phone: "070-4277-9372",
+    email: "contact@ai-dreamteller.com",
   };
 
   return (
@@ -86,6 +87,7 @@ const Footer = () => {
             <p>
               사업자등록번호: {businessInfo.businessNumber} | {businessInfo.address}
             </p>
+            <p>대표전화: {businessInfo.phone}</p>
             <p>이메일: {businessInfo.email}</p>
           </div>
 

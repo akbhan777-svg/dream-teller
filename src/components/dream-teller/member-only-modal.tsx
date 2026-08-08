@@ -17,7 +17,7 @@ export function MemberOnlyModal({ onLogin, onCancel }: MemberOnlyModalProps) {
         <div className="space-y-2">
           <h3 className="text-xl font-bold text-white">회원 전용 할인 상품입니다</h3>
           <p className="text-sm text-slate-300 leading-relaxed">
-            다회권(5회/10회) 할인 혜택은 **회원 전용 서비스**입니다.<br />
+            다회권(3회/5회) 할인 혜택은 **회원 전용 서비스**입니다.<br />
             3초 간편 소셜 가입 후 즉시 할인가로 이용하실 수 있습니다!
           </p>
         </div>

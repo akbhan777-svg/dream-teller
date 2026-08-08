@@ -74,19 +74,19 @@ export async function POST(request: Request) {
     let orderType = "single_interpretation";
     
     if (plan === "single") {
-      expectedAmount = isImageIncluded ? 1190 : 990;
+      expectedAmount = isImageIncluded ? 1500 : 1400;
       orderType = "single_interpretation";
     } else if (plan === "pass3") {
       if (!user) {
         return NextResponse.json({ success: false, error: "비회원은 할인 다회권을 결제할 수 없습니다. 회원가입 후 이용해 주세요." }, { status: 403 });
       }
-      expectedAmount = 2850;
+      expectedAmount = 3600;
       orderType = "pass_charge_3";
     } else if (plan === "pass5") {
       if (!user) {
         return NextResponse.json({ success: false, error: "비회원은 할인 다회권을 결제할 수 없습니다. 회원가입 후 이용해 주세요." }, { status: 403 });
       }
-      expectedAmount = 4460;
+      expectedAmount = 5250;
       orderType = "pass_charge_5";
     } else if (plan === "use_pass") {
       expectedAmount = 0;

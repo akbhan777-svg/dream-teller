@@ -191,9 +191,9 @@ export default function DreamResultClient({ orderId }: DreamResultClientProps) {
     };
   }, [resultData?.analysis_status, loading]);
 
-  useEffect(() => {
-    const KAKAO_KEY = process.env.NEXT_PUBLIC_KAKAO_APP_KEY || "YOUR_DUMMY_KAKAO_KEY";
-    if (typeof window !== "undefined" && window.Kakao) {
+  const ensureKakaoInit = () => {
+    const KAKAO_KEY = process.env.NEXT_PUBLIC_KAKAO_APP_KEY;
+    if (typeof window !== "undefined" && window.Kakao && KAKAO_KEY) {
       if (!window.Kakao.isInitialized()) {
         try {
           window.Kakao.init(KAKAO_KEY);
@@ -201,7 +201,13 @@ export default function DreamResultClient({ orderId }: DreamResultClientProps) {
           console.error("Kakao SDK 초기화 실패:", e);
         }
       }
+      return window.Kakao.isInitialized();
     }
+    return false;
+  };
+
+  useEffect(() => {
+    ensureKakaoInit();
   }, []);
 
   const handleCopyLink = async () => {
@@ -215,7 +221,7 @@ export default function DreamResultClient({ orderId }: DreamResultClientProps) {
   };
 
   const handleKakaoShare = () => {
-    if (typeof window !== "undefined" && window.Kakao && window.Kakao.isInitialized()) {
+    if (ensureKakaoInit() && window.Kakao?.Share) {
       window.Kakao.Share.sendDefault({
         objectType: "feed",
         content: {
@@ -245,7 +251,7 @@ export default function DreamResultClient({ orderId }: DreamResultClientProps) {
           url: window.location.href,
         }).catch(console.error);
       } else {
-        alert("카카오톡 공유를 지원하지 않는 환경입니다.");
+        alert("카카오톡 공유를 지원하지 않는 환경입니다. 링크 복사하기를 이용해 주세요.");
       }
     }
   };

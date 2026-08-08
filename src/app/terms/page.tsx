@@ -83,7 +83,7 @@ export default function TermsPage() {
                 </p>
                 <p className="flex items-start gap-2">
                   <CheckCircle2 className="w-4 h-4 text-dream-blue-light mt-1 flex-shrink-0" />
-                  <span><strong>다회권의 부분 환불:</strong> 패키지 횟수권 이용 도중 잔여 횟수를 취소 요청할 시, 사용한 횟수만큼의 단판 원가(1,190원 기준)를 차감한 잔여액을 환급해 드립니다.</span>
+                  <span><strong>다회권의 부분 환불:</strong> 패키지 횟수권 이용 도중 잔여 횟수를 취소 요청할 시, 사용한 횟수만큼의 단판 원가(1,500원 기준)를 차감한 잔여액을 환급해 드립니다.</span>
                 </p>
                 <p className="flex items-start gap-2">
                   <CheckCircle2 className="w-4 h-4 text-dream-blue-light mt-1 flex-shrink-0" />
