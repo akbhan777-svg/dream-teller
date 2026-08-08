@@ -8,6 +8,8 @@ export const metadata = {
   description: "다른 유저들의 꿈 해석 사례를 살펴보세요. AI가 분석한 다양한 꿈 해석 리포트를 확인할 수 있습니다.",
 };
 
+export const revalidate = 0; // 최신 피드가 항상 보이도록 캐시 비활성화
+
 /** 전문가 관점 아이콘/라벨 매핑 */
 const EXPERT_MAP: Record<string, { label: string; icon: typeof Eye; color: string }> = {
   freud: { label: "프로이트", icon: Eye, color: "text-dream-pink-light" },

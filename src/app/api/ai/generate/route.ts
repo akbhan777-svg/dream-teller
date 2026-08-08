@@ -123,20 +123,17 @@ export async function POST(request: Request) {
           4. 결론 (현재 심리 상태에 대한 통찰 및 실생활에 적용할 수 있는 구체적인 조언)
           
           [이미지 생성 프롬프트 특별 요구사항 - 수익 직결 요소]
-          이 서비스는 유료 서비스이므로, 생성되는 그림이 고객에게 혐오감을 주면 안 되며 '아름답고 소장하고 싶은' 퀄리티여야 합니다.
-          생성형 AI(Flux 등)는 돼지, 개, 사람 등 생명체의 이목구비나 신체를 그릴 때 기괴한 괴물처럼 왜곡되는 치명적인 단점이 있습니다.
-          따라서, 이미지 프롬프트에는 **절대로 동물, 사람, 생명체를 직접적으로 묘사하지 마세요.**
-          대신 꿈의 핵심 '감정'과 '상징'을 추출하여 **초현실적이고 신비로운 자연 풍경(Landscape)이나 빛나는 마법적 사물(Magical Object)**로 은유하여 프롬프트를 작성해야 합니다.
+          이 서비스는 유료 서비스이므로, 생성되는 그림이 고객에게 불쾌감이나 공포감을 주면 안 되며 '웅장하고 소장하고 싶은' 퀄리티여야 합니다.
+          생성형 AI는 사람이나 동물(생명체)을 그릴 때 기괴하게 왜곡되는(예: 얼굴이 없거나 팔이 없는 사람 등) 치명적인 단점이 있습니다.
+          따라서, 이미지 프롬프트에는 **절대로 동물, 사람, 생명체의 실루엣이나 신체를 직접적으로 묘사하지 마세요.**
+          비록 악몽이나 무서운 꿈을 꾸었더라도 절대 일그러진 사람이나 괴물, 동물을 그리지 마세요.
+          대신 꿈의 분위기와 핵심 상징을 **대자연, 광활한 우주, 웅장하고 멋진 풍경(Majestic Landscape, Cosmic Scenery, Ethereal Nature) 등 아름답고 장엄한 배경 위주의 이미지**로 은유하여 프롬프트를 작성해야 합니다.
 
-<<<<<<< HEAD
-          예시) "황금 돼지가 쏟아지는 꿈" -> "A breathtaking magical forest glowing 정답 with radiant golden light and sparkling golden leaves falling like rain, ethereal, beautiful scenery, masterpiece, 8k resolution, ultra detailed, photorealistic, luxury aesthetic, cinematic lighting, raytracing, 8k uhd, perfect composition, no animals, no humans"
-=======
-          예시) "황금 돼지가 쏟아지는 꿈" -> "A breathtaking magical forest glowing with radiant golden light and sparkling golden leaves falling like rain, ethereal, beautiful scenery, masterpiece, 8k resolution, ultra detailed, photorealistic, luxury aesthetic, cinematic lighting, raytracing, 8k uhd, perfect composition, no animals, no humans"
->>>>>>> 6a2622e (fix: resolve mobile caching and polling issue)
-          예시) "뱀에게 물리는 꿈" -> "A mystical dark enchanted forest with glowing emerald lights and a single radiant green gemstone on a pedestal, cinematic lighting, magical atmosphere, masterpiece, 8k resolution, luxury aesthetic, no animals, no humans"
+          예시) "황금 돼지가 쏟아지는 꿈" -> "A breathtaking majestic natural landscape glowing with radiant golden light and sparkling golden leaves falling like rain, ethereal, beautiful scenery, masterpiece, 8k resolution, ultra detailed, photorealistic, luxury aesthetic, cinematic lighting, raytracing, 8k uhd, perfect composition, no animals, no humans, no people, empty landscape"
+          예시) "뱀에게 물리거나 귀신을 보는 악몽" -> "A vast and majestic cosmic galaxy with swirling nebulas in deep dark blue and emerald colors, surreal and majestic cosmic landscape, cinematic lighting, masterpiece, 8k resolution, luxury aesthetic, empty landscape, absolutely no animals, absolutely no humans, no faces"
 
           보고서 맨 마지막 줄에는 위 규칙을 적용한 영문 프롬프트를 아래 형식으로 정확히 한줄 추가해 주세요:
-          IMAGE_PROMPT: A breathtaking [metaphorical landscape or magical object representing the dream], masterpiece, 8k resolution, ultra detailed, photorealistic, luxury aesthetic, cinematic lighting, raytracing, 8k uhd, perfect composition, no animals, no humans, no faces, no trademarked logos, no copyrighted IP characters
+          IMAGE_PROMPT: A breathtaking [majestic natural landscape or cosmic scenery representing the dream], masterpiece, 8k resolution, ultra detailed, photorealistic, luxury aesthetic, cinematic lighting, raytracing, 8k uhd, perfect composition, empty scenery, absolutely no animals, absolutely no humans, no faces, no silhouettes, no creatures, no monsters
 
           [매우 중요한 지시사항 - 엄격 준수]
           1. 내부 사고 과정(Draft, Self-Correction, Analysis Mode 등)이나 영어로 된 지시문/구조 요약을 절대 출력하지 마세요.

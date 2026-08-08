@@ -193,6 +193,7 @@ export default function DreamResultClient({ orderId }: DreamResultClientProps) {
 
   const ensureKakaoInit = () => {
     const KAKAO_KEY = process.env.NEXT_PUBLIC_KAKAO_APP_KEY;
+    console.log("현재 적용된 카카오 키 값:", KAKAO_KEY); // 디버깅용
     if (typeof window !== "undefined" && window.Kakao && KAKAO_KEY) {
       if (!window.Kakao.isInitialized()) {
         try {
