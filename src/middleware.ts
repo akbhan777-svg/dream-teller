@@ -35,8 +35,24 @@ export function middleware(request: NextRequest) {
     }
   }
 
-  // 보안 헤더 설정
+  // 기본 응답 객체 생성
   const response = NextResponse.next();
+
+  // 추천인(Referral) 코드 처리 로직
+  const refCode = request.nextUrl.searchParams.get('ref');
+  if (refCode) {
+    response.cookies.set({
+      name: 'dream_teller_ref',
+      value: refCode,
+      maxAge: 60 * 60 * 24 * 7, // 7 days
+      path: '/',
+      httpOnly: true, // JS 접근 방지 (서버에서만 읽기)
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+    });
+  }
+
+  // 보안 헤더 설정
   response.headers.set('X-Content-Type-Options', 'nosniff');
   response.headers.set('X-Frame-Options', 'DENY');
   response.headers.set('X-XSS-Protection', '1; mode=block');

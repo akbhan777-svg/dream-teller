@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendTelegramMessage } from "@/lib/telegram";
@@ -110,6 +111,49 @@ export async function POST(request: Request) {
 
     if (insertPaymentError) {
       console.error("Failed to insert payment history:", insertPaymentError);
+    }
+
+    // 3-2-5. 레퍼럴(추천인) 커미션 기록 생성 (UI 노출 없이 백그라운드 처리)
+    try {
+      const cookieStore = cookies();
+      const refCode = cookieStore.get("dream_teller_ref")?.value;
+      
+      if (refCode) {
+        // 1. 추천인 조회
+        const { data: refData } = await (supabaseAdmin.from("referral_links") as any)
+          .select("user_id")
+          .eq("code", refCode)
+          .single();
+          
+        if (refData && refData.user_id !== targetUserId) { // 자기 자신 추천 방지
+          // 2. 상품 타입별 커미션 고정 계산
+          let commissionAmount = 0;
+          if (order.order_type === "pass_charge_3") {
+            commissionAmount = 900;
+          } else if (order.order_type === "pass_charge_5") {
+            commissionAmount = 1500;
+          } else if (order.order_type === "single_report") {
+            commissionAmount = Number(amount) * 0.2; // 단건은 20%
+          }
+
+          if (commissionAmount > 0) {
+            // 3. 커미션 거래 내역 저장 (holding 상태)
+            await (supabaseAdmin.from("referral_transactions") as any).insert({
+              referrer_id: refData.user_id,
+              buyer_id: targetUserId,
+              order_id: order.order_number,
+              product_type: order.order_type,
+              payment_amount: Number(amount),
+              commission_amount: commissionAmount,
+              status: "holding"
+            });
+            console.log(`Referral commission recorded: ${commissionAmount} for ${refData.user_id}`);
+          }
+        }
+      }
+    } catch (refError) {
+      console.error("Failed to process referral commission:", refError);
+      // 레퍼럴 로직이 실패해도 본 결제 흐름은 방해하지 않음
     }
 
     // 3-3. 다회권 구매 시 충전 및 입력한 꿈 1회 차감/해몽 즉시 처리 (회원일 경우만)
