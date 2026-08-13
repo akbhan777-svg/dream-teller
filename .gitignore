@@ -41,3 +41,10 @@ yarn-error.log*
 next-env.d.ts
 
 .vercel
+
+# local exports and scratch files
+scratch/
+전체_대화록_모음/
+Dream_Teller_*
+*.doc
+*.docx

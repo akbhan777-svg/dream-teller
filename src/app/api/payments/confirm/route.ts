@@ -115,7 +115,7 @@ export async function POST(request: Request) {
 
     // 3-2-5. 레퍼럴(추천인) 커미션 기록 생성 (UI 노출 없이 백그라운드 처리)
     try {
-      const cookieStore = cookies();
+      const cookieStore = await cookies();
       const refCode = cookieStore.get("dream_teller_ref")?.value;
       
       if (refCode) {
@@ -125,29 +125,36 @@ export async function POST(request: Request) {
           .eq("code", refCode)
           .single();
           
-        if (refData && refData.user_id !== targetUserId) { // 자기 자신 추천 방지
-          // 2. 상품 타입별 커미션 고정 계산
-          let commissionAmount = 0;
-          if (order.order_type === "pass_charge_3") {
-            commissionAmount = 900;
-          } else if (order.order_type === "pass_charge_5") {
-            commissionAmount = 1500;
-          } else if (order.order_type === "single_report") {
-            commissionAmount = Number(amount) * 0.2; // 단건은 20%
-          }
+        if (refData) {
+          if (refData.user_id === targetUserId) {
+            console.log("Referral blocked: User tried to refer themselves.");
+          } else {
+            // 2. 상품 타입별 커미션 고정 계산
+            let commissionAmount = 0;
+            if (order.order_type === "pass_charge_3") {
+              commissionAmount = 900;
+            } else if (order.order_type === "pass_charge_5") {
+              commissionAmount = 1500;
+            } else if (order.order_type === "single_interpretation") {
+              commissionAmount = Number(amount) * 0.2; // 단건은 20%
+            }
 
-          if (commissionAmount > 0) {
-            // 3. 커미션 거래 내역 저장 (holding 상태)
-            await (supabaseAdmin.from("referral_transactions") as any).insert({
-              referrer_id: refData.user_id,
-              buyer_id: targetUserId,
-              order_id: order.order_number,
-              product_type: order.order_type,
-              payment_amount: Number(amount),
-              commission_amount: commissionAmount,
-              status: "holding"
-            });
-            console.log(`Referral commission recorded: ${commissionAmount} for ${refData.user_id}`);
+            if (commissionAmount > 0) {
+              // 비회원용 더미 UUID 처리 (Foreign Key 에러 방지)
+              const safeBuyerId = targetUserId === "00000000-0000-0000-0000-000000000000" ? null : targetUserId;
+
+              // 3. 커미션 거래 내역 저장 (holding 상태)
+              await (supabaseAdmin.from("referral_transactions") as any).insert({
+                referrer_id: refData.user_id,
+                buyer_id: safeBuyerId,
+                order_id: order.order_number,
+                product_type: order.order_type,
+                payment_amount: Number(amount),
+                commission_amount: commissionAmount,
+                status: "holding"
+              });
+              console.log(`Referral commission recorded: ${commissionAmount} for ${refData.user_id}`);
+            }
           }
         }
       }
