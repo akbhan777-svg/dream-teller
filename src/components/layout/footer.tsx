@@ -38,7 +38,7 @@ const Footer = () => {
     companyName: "정주하우징",
     representative: "반상훈",
     businessNumber: "106-16-52689",
-    address: "경기도 평택시 고덕국제6로 50, 1403동 1501호",
+    address: "경기도 평택시 고덕국제6로 50, 1403동 1501호(고덕동, 고덕국제신도시리슈빌레이크파크)",
     phone: "070-4277-9372",
     email: "contact@ai-dreamteller.com",
   };
